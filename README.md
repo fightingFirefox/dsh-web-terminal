@@ -1,8 +1,8 @@
 # dsh-web-terminal
 
 Claude 风格的可见终端面板插件，面向 DeepSeek Harness（DSH）**Web profile**。
-把 agent 的前台 shell 调用镜像到右侧栏终端，并向模型暴露一组 `live_terminal_*` 工具，
-用于读取、搜索、等待与截屏终端。
+agent 的前台 shell 调用直接跑在一个常驻的真实 PTY 里：提示符、命令回显、输出与退出码
+全部由 shell 自己产生，右侧栏显示的就是那个终端本身；插件不拼接、不回放输出。
 
 ![面板示意](docs/hero.png)
 
@@ -81,22 +81,39 @@ pwsh -NoProfile -File uninstall.ps1
 
 1. 重启 DSH（`dsh web`），右侧栏出现终端标签页（kind：`web-terminal-panel`）
 2. 在对话中触发一次前台 shell 命令（如「运行 `npm test`」）
-   - 命令输出进入面板，右侧栏自动打开
-   - 命令短于 `interceptMinVisibleMs` 时不创建标签页
-3. 面板内 `+` 可新建交互终端；`Ctrl+Alt+Enter` 切换专注模式
+   - 右侧栏自动打开一个 `pwsh` 标签页，命令以 `PS <cwd>> <命令>` 的形式出现
+   - 命令结束后回到提示符，下一条命令在同一屏继续追加
+3. 面板内可直接键入（与 agent 共用同一个 shell）；`+` 新建独立交互终端
 4. 模型侧可通过 `live_terminal_list` 看到当前终端
 
 ## 行为说明
 
 - **拦截范围**：仅 agent 的前台 `pwsh`/`bash` 调用。带 `run_in_background`
   或 `sandbox_permissions` 的调用不拦截，保持 DSH 原生语义。
-- **自动打开**：一次会话内首个被拦截命令触发右侧栏打开；失败按
-  `OPEN_RETRY_DELAYS`（500/1500/3000 ms）重试。
-- **自动关闭**：成功 8 s、失败 30 s 后关闭；悬停暂停，`保留` 永久保留。
-- **历史**：关闭的命令写入历史（默认 20 条，尾部保留 ≤64 KiB），
-  `historyPersist: true` 时落盘到 `~/.dsh/dsh-web-terminal/history.json`。
+- **一个会话一个 shell**：同一对话复用同一个常驻 PTY；命令串行排队，不并发写同一个 shell。
+- **自动打开**：出现新的可见终端时自动打开右侧栏。
+- **常驻**：命令结束后终端保持打开并停在提示符上，没有自动关闭计时器；
+  需要额外终端时用面板的 `+` 或 `live_terminal_open`。
 - **传输**：面板数据经宿主 HTTP/SSE 通道（前缀 `/dsh-terminal-panel`）在本地
   浏览器与宿主之间传输，不访问外部服务。
+
+## 终端实现
+
+拦截路径不创建“命令终端”，而是把命令送进一个常驻交互 shell：
+
+| 环节 | 做法 |
+|---|---|
+| 进程 | 每个会话每种 shell 一个 PTY（`pwsh -NoLogo` / `bash -i`），与面板共用 |
+| 提示符 | 启动时注入 `prompt` 函数，输出 `PS <cwd>> ` |
+| 退出码 | `prompt` 把 `$LASTEXITCODE;$?` 追加到临时标记文件；标记不进入屏幕 |
+| 发送 | 逐行写入并在末尾单独发送回车，模拟键盘输入，避免 PSReadLine 多打空行 |
+| 完成判定 | 屏幕最后一行是提示符且静置 140 ms |
+| 输出抽取 | 命令前后屏幕差异，去掉回显块与结尾提示符，仅保留命令输出 |
+| 超时/中断 | 向 PTY 发送 Ctrl-C，shell 保留 |
+| 回退 | 初始化或运行失败时交回内置工具，命令语义不变 |
+
+因此面板里看到的是 shell 自己渲染的提示符、回显与提示符回归；命令历史保存在该 PTY
+的滚动缓冲区中，切换会话标签不会重置内容。
 
 ## 配置
 
@@ -105,7 +122,7 @@ pwsh -NoProfile -File uninstall.ps1
 | 键 | 默认 | 说明 |
 |---|---|---|
 | `interceptShellTools` | `true` | 是否拦截 agent 前台 shell 调用 |
-| `interceptMinVisibleMs` | `1200` | 从 shell 就绪起计时的可见阈值；`0` 表示全部可见 |
+| `interceptMinVisibleMs` | `1200` | 仅作用于工具创建的可见命令终端；拦截路径始终可见 |
 | `autoCloseCommandDelayMs` | `8000` | 成功结束后自动关闭延迟；`-1` 永不 |
 | `autoCloseFailedDelayMs` | `30000` | 失败/超时/中止后关闭延迟 |
 | `autoCloseToolTerminals` | `true` | `live_terminal_run` 终端是否同样自动关闭 |
@@ -167,7 +184,7 @@ pwsh -NoProfile -File uninstall.ps1
 |---|---|
 | 没有 `live_terminal_*` 工具 | `dsh.profile.bundles` 是否包含 `dsh-web-terminal`；宿主是否完整重启 |
 | 面板标签页不出现 | `cordis.patch.yml` 是否有 `- id: dsh-web-terminal` 行；浏览器控制台是否有 client bundle 报错 |
-| 命令不上屏 | `interceptShellTools` 是否为 `true`；命令是否短于 `interceptMinVisibleMs`；是否带后台/升权参数 |
+| 命令不上屏 | `interceptShellTools` 是否为 `true`；是否带后台/升权参数；是否处于非 `danger-full-access` 且 `requireSandbox: true` |
 | 安装被 engines 拒绝 | `dsh plugin add` 会校验版本；本仓库使用手工安装路径 |
 
 ## 构建

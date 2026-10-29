@@ -40,6 +40,7 @@ import {
   IconSandbox,
   IconSearch,
   IconSettings,
+  IconSplit,
   IconTerminal,
   IconWarning,
 } from './icons'
@@ -103,6 +104,7 @@ const DEFAULT_FONT_SIZE = 13
 const MIN_FONT_SIZE = 10
 const MAX_FONT_SIZE = 20
 const SANDBOX_DISMISS_STORAGE_KEY = 'dsh-web-terminal.sandbox-dismissed'
+const SPLIT_STORAGE_KEY = 'dsh-web-terminal.split'
 
 const activePanel = { root: null as HTMLElement | null }
 
@@ -130,6 +132,24 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
 
   }
   return fallback
+}
+
+function readStoredString(key: string, fallback: string): string {
+  try {
+    const value = globalThis.localStorage?.getItem(key)
+    if (typeof value === 'string' && value !== '') return value
+  } catch {
+
+  }
+  return fallback
+}
+
+function storeString(key: string, value: string): void {
+  try {
+    globalThis.localStorage?.setItem(key, value)
+  } catch {
+
+  }
 }
 
 function storeBoolean(key: string, value: boolean): void {
@@ -351,6 +371,10 @@ export function Panel(props: PanelProps) {
   const [phase, setPhase] = useState<ListPhase>('loading')
   const [listError, setListError] = useState<ListError | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [splitId, setSplitId] = useState<string | null>(() => {
+    const stored = readStoredString(SPLIT_STORAGE_KEY, '')
+    return stored === '' ? null : stored
+  })
   const [view, setView] = useState<ViewState>({ mode: 'terminal' })
   const [creating, setCreating] = useState(false)
   const [connection, setConnection] = useState<ConnectionState>('connecting')
@@ -649,6 +673,20 @@ export function Panel(props: PanelProps) {
     if (sessions.length === 0) return null
     return pickPreferred(sessions) ?? null
   }, [sessions, selectedId])
+
+  const splitSession = useMemo(() => {
+    if (splitId === null) return null
+    const found = sessions.find((session) => session.id === splitId) ?? null
+    return found !== null && found.id === selectedId ? null : found
+  }, [sessions, splitId, selectedId])
+
+  useEffect(() => {
+    storeString(SPLIT_STORAGE_KEY, splitId ?? '')
+  }, [splitId])
+
+  useEffect(() => {
+    if (splitId !== null && !sessions.some((session) => session.id === splitId)) setSplitId(null)
+  }, [sessions, splitId])
 
   const hasAnyCountdown = useMemo(
     () =>
@@ -1093,6 +1131,47 @@ export function Panel(props: PanelProps) {
     return filtered.length > 0 ? filtered : orderedSessions
   }, [conversationSessionId, onlyThisSession, orderedSessions])
 
+  const tabEntries = useMemo(() => {
+    const entries: Array<{ key: string; sessions: SessionInfo[]; representative: SessionInfo }> = []
+    const byGroup = new Map<string, number>()
+    for (const session of scopedSessions) {
+      const group = session.kind === 'command' ? session.group : undefined
+      if (group === undefined || group === '') {
+        entries.push({ key: session.id, sessions: [session], representative: session })
+        continue
+      }
+      const existing = byGroup.get(group)
+      if (existing === undefined) {
+        byGroup.set(group, entries.length)
+        entries.push({ key: `group:${group}`, sessions: [session], representative: session })
+      } else {
+        entries[existing]?.sessions.push(session)
+      }
+    }
+    return entries
+  }, [scopedSessions])
+
+  const activeGroupSessions = useMemo(() => {
+    const group = selectedSession !== null && selectedSession.kind === 'command' ? selectedSession.group : undefined
+    if (group === undefined || group === '') return null
+    const members = sessions.filter((session) => session.kind === 'command' && session.group === group)
+    if (members.length === 0) return null
+    return members.sort((left, right) => left.startedAt - right.startedAt)
+  }, [selectedSession, sessions])
+
+  const groupRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (activeGroupSessions === null) return
+    const element = groupRef.current
+    if (!element) return
+    try {
+      element.scrollTop = element.scrollHeight
+    } catch {
+
+    }
+  }, [activeGroupSessions])
+
   const canGroup = useMemo(
     () =>
       conversationSessionId !== undefined &&
@@ -1268,6 +1347,19 @@ export function Panel(props: PanelProps) {
   const unreadCount = unread.size
   const closeMenu = (): void => setMenuOpen(false)
 
+  const toggleSplit = (): void => {
+    if (splitSession !== null) {
+      setSplitId(null)
+      return
+    }
+    const other = orderedSessions.find((session) => session.id !== selectedId) ?? null
+    if (other === null) {
+      showToast(t('splitNeedTwo'), 'info')
+      return
+    }
+    setSplitId(other.id)
+  }
+
   const handleDialogBackdrop = (event: ReactPointerEvent<HTMLDivElement>): void => {
     if (event.target === event.currentTarget) setDialog(null)
   }
@@ -1326,7 +1418,14 @@ export function Panel(props: PanelProps) {
         data-pinned={session.pinned ? 'true' : 'false'}
         data-dsh-tp-session-id={session.id}
         title={`${title}${SEPARATOR}${stateText}${SEPARATOR}${session.cwd}`}
-        onClick={() => selectSession(session.id)}
+        onClick={(event) => {
+          if (event.altKey) {
+            event.preventDefault()
+            setSplitId(session.id === selectedId ? null : session.id)
+            return
+          }
+          selectSession(session.id)
+        }}
         onDoubleClick={() => openRename(session)}
         onAuxClick={(event) => {
           if (event.button === 1) {
@@ -1380,6 +1479,53 @@ export function Panel(props: PanelProps) {
     )
   }
 
+  const renderGroupTab = (entry: { key: string; sessions: SessionInfo[]; representative: SessionInfo }): JSX.Element => {
+    const groupId = entry.representative.group ?? ''
+    const active = selected !== null && selected.group === groupId && groupId !== ''
+    const state = entry.sessions.some((session) => session.state === 'running')
+      ? 'running'
+      : entry.representative.state
+    const title = `${t('groupTab')} · ${entry.sessions.length}`
+    return (
+      <div
+        key={entry.key}
+        className="dshtp-tab"
+        role="tab"
+        id={`${tabPanelId}-tab-${entry.key}`}
+        aria-controls={tabPanelId}
+        aria-selected={active}
+        aria-label={`${title}, ${entry.representative.cwd}`}
+        tabIndex={active ? 0 : -1}
+        data-active={active ? 'true' : 'false'}
+        data-state={state}
+        data-dsh-tp-group-tab={groupId}
+        title={`${title}${SEPARATOR}${entry.representative.cwd}`}
+        onClick={() => selectSession(entry.representative.id)}
+        onAuxClick={(event) => {
+          if (event.button === 1) {
+            event.preventDefault()
+            for (const member of entry.sessions) void closeTerminal(member.id)
+          }
+        }}
+      >
+        <span className="dshtp-dot" data-state={state} />
+        <span className="dshtp-tab-title">{title}</span>
+        <button
+          type="button"
+          className="dshtp-tab-close"
+          aria-label={t('closeSession')}
+          title={t('closeSession')}
+          onClick={(event) => {
+            event.stopPropagation()
+            for (const member of entry.sessions) void closeTerminal(member.id)
+          }}
+        >
+          <IconClose size={11} />
+        </button>
+      </div>
+    )
+  }
+
   const terminalNode =
     selected !== null && view.mode === 'terminal' ? (
       <TerminalView
@@ -1407,6 +1553,104 @@ export function Panel(props: PanelProps) {
         onToast={(text, kind) => showToast(text, kind === 'error' ? 'error' : 'info')}
         onController={handleController}
       />
+    ) : null
+
+  const groupView =
+    activeGroupSessions !== null && view.mode === 'terminal' ? (
+      <div className="dshtp-group" data-dsh-tp-group ref={groupRef}>
+        {activeGroupSessions.map((member) => (
+          <section key={member.id} className="dshtp-group-card" data-state={member.state}>
+            <div className="dshtp-group-head">
+              <span className="dshtp-group-cmd" title={member.command ?? member.title}>
+                {member.command ?? member.title}
+              </span>
+              <span className="dshtp-group-meta">
+                {stateLabel(member, t)}
+                {member.durationMs !== null ? ` · ${Math.round(member.durationMs)}ms` : ''}
+                {member.exitCode !== null ? ` · exit ${member.exitCode}` : ''}
+              </span>
+            </div>
+            <div className="dshtp-group-body">
+              <TerminalView
+                key={member.id}
+                sessionId={member.id}
+                clientId={clientId}
+                t={t}
+                fontSize={fontSize > 0 ? fontSize : undefined}
+                writable={false}
+                reconnectToken={reconnectToken}
+                onInfo={updateInfo}
+                onError={() => undefined}
+                onReadOnlyInput={() => undefined}
+                onSelectionChange={() => undefined}
+                onToast={() => undefined}
+              />
+            </div>
+          </section>
+        ))}
+      </div>
+    ) : null
+
+  const splitReadOnly =
+    splitSession !== null &&
+    splitSession.writerClientId !== undefined &&
+    splitSession.writerClientId !== '' &&
+    splitSession.writerClientId !== clientId
+  const splitTerminalNode =
+    splitSession !== null ? (
+      <TerminalView
+        key={splitSession.id}
+        sessionId={splitSession.id}
+        clientId={clientId}
+        t={t}
+        fontSize={fontSize > 0 ? fontSize : undefined}
+        writable={!splitReadOnly}
+        reconnectToken={reconnectToken}
+        onConnectionChange={handleConnectionChange}
+        onReady={() => undefined}
+        onInfo={updateInfo}
+        onError={(message) => setTermError(message)}
+        onWriterChange={(writer) => {
+          if (writer !== undefined) updateSession(splitSession.id, { writerClientId: writer })
+        }}
+        onInputError={(message) => showToast(`${t('inputFailed')}: ${message}`, 'error')}
+        onReadOnlyInput={() => showToast(t('takeControlHint'), 'info')}
+        onUserActivity={() => {
+          setFollow(false)
+          storeBoolean(FOLLOW_STORAGE_KEY, false)
+        }}
+        onSelectionChange={() => undefined}
+        onToast={(text, kind) => showToast(text, kind === 'error' ? 'error' : 'info')}
+        onController={() => undefined}
+      />
+    ) : null
+
+  const splitView =
+    splitSession !== null && view.mode === 'terminal' ? (
+      <div className="dshtp-split" data-dsh-tp-split>
+        <section className="dshtp-pane">
+          <div className="dshtp-pane-head">
+            <span className="dshtp-pane-title">{selected?.title ?? ''}</span>
+          </div>
+          {terminalNode}
+        </section>
+        <div className="dshtp-split-divider" role="separator" aria-orientation="vertical" />
+        <section className="dshtp-pane">
+          <div className="dshtp-pane-head">
+            <span className="dshtp-pane-title">{splitSession.title}</span>
+            <button
+              type="button"
+              className="dshtp-pane-close"
+              aria-label={t('splitClose')}
+              title={t('splitClose')}
+              onClick={() => setSplitId(null)}
+            >
+              <IconClose size={11} />
+            </button>
+          </div>
+          {splitTerminalNode}
+        </section>
+      </div>
     ) : null
 
   const bannerNodes: JSX.Element[] = []
@@ -2310,6 +2554,19 @@ export function Panel(props: PanelProps) {
 
         <button
           type="button"
+          className="dshtp-split-toggle"
+          aria-label={t('split')}
+          title={splitSession !== null ? t('splitClose') : t('splitHint')}
+          aria-pressed={splitSession !== null}
+          data-dsh-tp-action="split"
+          onClick={toggleSplit}
+          disabled={scopedSessions.length < 2}
+        >
+          <IconSplit size={14} />
+        </button>
+
+        <button
+          type="button"
           className="dshtp-more"
           aria-label={t('more')}
           title={t('more')}
@@ -2354,7 +2611,7 @@ export function Panel(props: PanelProps) {
         {view.mode === 'history'
           ? historyView
           : selected !== null
-            ? terminalNode
+            ? splitView ?? terminalNode
             : phase === 'loading'
               ? loadingState
               : phase === 'error'

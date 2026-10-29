@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 
-import { listSessions, openSessionsStream } from './api'
+import { fetchConfig, listSessions, openSessionsStream } from './api'
 import { en, zh } from './locale'
 import { Panel } from './Panel'
+import { SettingsSection } from './SettingsSection'
 import { styles } from './styles'
-import type { Notice, SessionInfo } from './types'
+import type { ConfigInfo, Notice, SessionInfo } from './types'
 
-export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs']
+export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs', 'configForms']
 
 const NAMESPACE = 'dshTerminalPanel'
 const PLUGIN_ID = 'dsh-web-terminal'
@@ -61,6 +62,7 @@ interface SidebarRightService {
 
 interface ClientContext {
   effect(callback: () => (() => void) | void, label?: string): void
+  configForms?: { get(id: string): unknown }
   locale: LocaleService
   slots: SlotsService
   sidebarRight?: SidebarRightService
@@ -134,6 +136,8 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
   const toastIdRef = useRef(0)
   const knownIdsRef = useRef<Set<string>>(new Set())
   const baselineReadyRef = useRef(false)
+  const configRef = useRef<ConfigInfo | null>(null)
+  const buildStampRef = useRef<string | undefined>(undefined)
   const autoOpenedRef = useRef<Set<string>>(new Set())
   const manualClosedRef = useRef<Set<string>>(new Set())
   const lastAutoKeyRef = useRef<string | null>(null)
@@ -150,6 +154,7 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
   useEffect(() => {
     let disposed = false
     let unsubscribe: (() => void) | undefined
+    let cleanupReload: (() => void) | undefined
 
     const attemptOpen = (key: string, attempt: number): void => {
       if (disposed) return
@@ -180,18 +185,30 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         return
       }
       const known = knownIdsRef.current
+      const policy = configRef.current?.config.autoOpenPolicy ?? 'all'
+      if (policy === 'off') return
+      const includeInteractive = configRef.current?.config.autoOpenIncludeInteractive ?? true
+      const reopen = configRef.current?.config.autoOpenReopenAfterClose ?? true
       for (const session of incoming) {
         if (known.has(session.id)) continue
         known.add(session.id)
-        if (session.kind !== 'command' || session.owner !== 'agent' || session.state !== 'running') {
-          continue
-        }
-        const key = session.sessionId ?? '__page__'
-        attemptOpen(key, 0)
+        if (session.owner !== 'agent' || session.state !== 'running') continue
+        const commandLike = session.kind === 'command'
+        const allowed = policy === 'intercepted' ? commandLike : commandLike || (includeInteractive && session.kind === 'interactive')
+        if (!allowed) continue
+        const sessionKey = session.sessionId ?? '__page__'
+        if (!reopen && (autoOpenedRef.current.has(sessionKey) || manualClosedRef.current.has(sessionKey))) continue
+        attemptOpen(session.id ?? sessionKey, 0)
       }
     }
 
     const start = async (): Promise<void> => {
+      try {
+        configRef.current = await fetchConfig()
+        buildStampRef.current = configRef.current?.buildStamp
+      } catch {
+        configRef.current = null
+      }
 
       for (let attempt = 0; ; attempt += 1) {
         try {
@@ -208,6 +225,20 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         }
       }
       if (disposed) return
+      const reloadTimer = window.setInterval(() => {
+        void fetchConfig()
+          .then((info) => {
+            if (disposed) return
+            const next = info.buildStamp
+            const previous = buildStampRef.current
+            if (previous === undefined || next === undefined || next === previous) return
+            buildStampRef.current = next
+            console.log('[dsh-web-terminal] client bundle changed, reloading page')
+            window.location.reload()
+          })
+          .catch(() => undefined)
+      }, 8000)
+      cleanupReload = () => window.clearInterval(reloadTimer)
       unsubscribe = openSessionsStream({
         onSessions: inspect,
         onNotice: (notice) => {
@@ -223,6 +254,7 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
 
     return () => {
       disposed = true
+      cleanupReload?.()
       unsubscribe?.()
     }
 
@@ -454,6 +486,24 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(
     () => ctx.locale.register(NAMESPACE, { zh, en }),
     'dsh-web-terminal: locale',
+  )
+
+  ctx.effect(
+    () =>
+      ctx.slots.inject('settings.section', () =>
+        ctx.slots.register(
+          {
+            name: 'settings.section',
+            id: PLUGIN_ID,
+            order: 55,
+            label: () => t('settings.nav'),
+            locale: NAMESPACE,
+            inject: () => ({ form: ctx.configForms?.get(PLUGIN_ID) }),
+          },
+          SettingsSection as unknown as LooseFunction,
+        ),
+      ),
+    'dsh-web-terminal: settings section',
   )
 
   ctx.effect(

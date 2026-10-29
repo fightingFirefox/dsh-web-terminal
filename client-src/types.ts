@@ -31,6 +31,7 @@ export interface SessionInfo {
   sessionId?: string
   agentId?: string
   command?: string
+  group?: string
   cwd: string
   cols: number
   rows: number
@@ -127,11 +128,18 @@ export interface PublicConfig {
   allowUnconfined: boolean
   portDetection: boolean
   shellPath: string | null
+  autoOpenPolicy: 'all' | 'intercepted' | 'off'
+  autoOpenIncludeInteractive: boolean
+  autoOpenReopenAfterClose: boolean
+  exposeTools: 'none' | 'core' | 'full'
+  singleCommandTab: boolean
+  sshProfiles: Array<{ name: string; host: string; user?: string; port?: number; identityFile?: string }>
   [key: string]: unknown
 }
 
 export interface ConfigInfo {
   version: string
+  buildStamp?: string
   config: PublicConfig
   sandbox: { mode: string; available?: boolean }
   shell: { kind?: string; path?: string | null }
@@ -286,6 +294,8 @@ export function parseSessionInfo(value: unknown): SessionInfo | null {
   if (agentId !== undefined) info.agentId = agentId
   const command = readString(record.command)
   if (command !== undefined) info.command = command
+  const group = readString(record.group)
+  if (group !== undefined) info.group = group
   const error = readString(record.error)
   if (error !== undefined) info.error = error
   const writerClientId = readString(record.writerClientId)
@@ -310,6 +320,8 @@ export function parseSessionPatch(value: unknown): SessionInfoPatch | null {
   if (agentId !== undefined) patch.agentId = agentId
   const command = readString(record.command)
   if (command !== undefined) patch.command = command
+  const group = readString(record.group)
+  if (group !== undefined) patch.group = group
   const cwd = readString(record.cwd)
   if (cwd !== undefined) patch.cwd = cwd
   const cols = readNumber(record.cols)
@@ -565,6 +577,7 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
     readBoolean(config[key]) ?? fallback
   return {
     version: readString(record.version) ?? '',
+    buildStamp: readString(record.buildStamp),
     config: {
       ...config,
       interceptShellTools: bool('interceptShellTools', true),
@@ -588,6 +601,32 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
       allowUnconfined: bool('allowUnconfined', true),
       portDetection: bool('portDetection', true),
       shellPath: readString(config.shellPath) ?? null,
+      autoOpenPolicy:
+        config.autoOpenPolicy === 'intercepted' || config.autoOpenPolicy === 'off'
+          ? config.autoOpenPolicy
+          : 'all',
+      autoOpenIncludeInteractive: bool('autoOpenIncludeInteractive', true),
+      autoOpenReopenAfterClose: bool('autoOpenReopenAfterClose', true),
+      exposeTools:
+        config.exposeTools === 'core' || config.exposeTools === 'full' ? config.exposeTools : 'none',
+      singleCommandTab: bool('singleCommandTab', true),
+      sshProfiles: Array.isArray(config.sshProfiles)
+        ? (config.sshProfiles as unknown[])
+            .map((item) => {
+              const profile = asRecord(item)
+              const name = profile ? readString(profile.name) : undefined
+              const host = profile ? readString(profile.host) : undefined
+              if (!name || !host) return null
+              return {
+                name,
+                host,
+                user: profile ? readString(profile.user) : undefined,
+                port: profile ? readNumber(profile.port) : undefined,
+                identityFile: profile ? readString(profile.identityFile) : undefined,
+              }
+            })
+            .filter((item): item is { name: string; host: string } => item !== null)
+        : [],
     },
     sandbox: {
       mode: readString(sandbox?.mode) ?? 'danger-full-access',

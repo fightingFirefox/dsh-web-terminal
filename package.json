@@ -92,5 +92,13 @@
         "0.2.1-alpha.3": "compatible"
       }
     }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
   }
 }

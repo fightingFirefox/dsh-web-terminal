@@ -475,3 +475,12 @@ export function IconWarning(props: IconProps) {
 
   )
 }
+
+export function IconSplit(props: IconProps): JSX.Element {
+  return (
+    <Glyph {...props}>
+      <rect x="2.4" y="3.2" width="11.2" height="9.6" rx="1.6" stroke="currentColor" fill="none" strokeWidth="1.3" />
+      <path d="M8 3.2v9.6" stroke="currentColor" strokeWidth="1.3" />
+    </Glyph>
+  )
+}
