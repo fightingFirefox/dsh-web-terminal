@@ -1,7 +1,7 @@
 {
   "name": "dsh-web-terminal",
   "version": "1.0.0",
-  "description": "Claude-styled visible terminal panel for the DeepSeek Harness (DSH) *web* GUI: stream agent shell commands into the right sidebar live, take terminal screenshots, and drive terminals with a full live_terminal_* toolset. DSH 网页版可见终端面板（Claude 皮肤）。",
+  "description": "Visible terminal panel for the DeepSeek Harness web GUI: one persistent PTY per conversation with a real prompt, echo and exit codes; Claude-styled themes; optional live_terminal_* tools.",
   "type": "module",
   "license": "MIT",
   "author": "LANCANG (upstream dsh-live-terminal)",
