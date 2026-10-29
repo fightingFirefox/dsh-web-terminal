@@ -50,6 +50,8 @@ pwsh -NoProfile -File install.ps1
 
 安装后必须完全退出 DSH 再启动：host 插件与 client bundle 在启动时加载。
 
+也可以直接下载 [Release v1.0.0](https://github.com/fightingFirefox/dsh-web-terminal/releases/tag/v1.0.0) 的源码包，解压后执行同一份 `install.ps1`。
+
 方式二：手动安装
 
 ```powershell
