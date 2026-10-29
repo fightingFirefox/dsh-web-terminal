@@ -1,0 +1,96 @@
+{
+  "name": "dsh-web-terminal",
+  "version": "1.0.0",
+  "description": "Claude-styled visible terminal panel for the DeepSeek Harness (DSH) *web* GUI: stream agent shell commands into the right sidebar live, take terminal screenshots, and drive terminals with a full live_terminal_* toolset. DSH 网页版可见终端面板（Claude 皮肤）。",
+  "type": "module",
+  "license": "MIT",
+  "author": "LANCANG (upstream dsh-live-terminal)",
+  "contributors": [
+    {
+      "name": "dsh-web-terminal contributors"
+    }
+  ],
+  "homepage": "https://github.com/OWNER/dsh-web-terminal#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/dsh-web-terminal.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OWNER/dsh-web-terminal/issues"
+  },
+  "icon": "icon.svg",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "dsh-web",
+    "terminal",
+    "pty",
+    "xterm",
+    "sidebar",
+    "claude",
+    "claude-theme",
+    "agent-tools",
+    "screenshot"
+  ],
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "NOTICE",
+    "icon.svg",
+    "install.ps1",
+    "uninstall.ps1"
+  ],
+  "dependencies": {
+    "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/headless": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/addon-search": "^0.16.0",
+    "@xterm/addon-unicode11": "^0.9.0",
+    "@xterm/addon-web-links": "^0.12.0",
+    "@xterm/xterm": "^6.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-alpha.3 <0.3.0-0"
+  },
+  "scripts": {
+    "build": "node tools/build-client.mjs",
+    "build:cli": "pwsh -NoProfile -File tools/build-cli.ps1",
+    "wrap": "node tools/wrap-bundle.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar-right"
+      ]
+    },
+    "engines": {
+      "dsh": ">=0.2.1-alpha.3 <0.3.0-0"
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.1-alpha.3": "compatible"
+      }
+    }
+  }
+}

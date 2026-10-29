@@ -1,0 +1,22 @@
+dsh-web-terminal
+===============
+
+Copyright (c) 2026 dsh-web-terminal contributors
+Copyright (c) 2026 LANCANG — dsh-live-terminal (upstream)
+Copyright (c) 2026 Nwflower — dsh-claude-style (design language reference)
+
+This project is a fork of dsh-live-terminal
+(https://github.com/Lancang-hzau/dsh-live-terminal, MIT), re-skinned for the
+Claude Code Desktop visual language and re-targeted at the DSH **web** profile.
+
+Upstream parts retained under their original MIT license:
+  - host half: lib/index.js, lib/host/*.js      (dsh-live-terminal)
+  - client logic: client-src/*.ts, *.tsx        (dsh-live-terminal)
+  - xterm.js and addons, MIT (https://github.com/xtermjs/xterm.js)
+
+Original additions in this repository:
+  - Claude skin layer appended to client-src/styles.ts
+  - Claude ANSI palette + accent cursor in client-src/theme.ts
+  - web-profile install/uninstall scripts and packaging metadata
+
+The MIT license text in LICENSE applies to the whole repository.
