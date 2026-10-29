@@ -122,7 +122,6 @@ pwsh -NoProfile -File uninstall.ps1
 | 键 | 默认 | 说明 |
 |---|---|---|
 | `interceptShellTools` | `true` | 是否拦截 agent 前台 shell 调用 |
-| `interceptMinVisibleMs` | `1200` | 仅作用于工具创建的可见命令终端；拦截路径始终可见 |
 | `autoCloseCommandDelayMs` | `8000` | 成功结束后自动关闭延迟；`-1` 永不 |
 | `autoCloseFailedDelayMs` | `30000` | 失败/超时/中止后关闭延迟 |
 | `autoCloseToolTerminals` | `true` | `live_terminal_run` 终端是否同样自动关闭 |

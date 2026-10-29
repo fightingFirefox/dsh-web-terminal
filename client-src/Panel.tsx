@@ -339,9 +339,6 @@ function shortcutRows(
 function configSnippet(config: ConfigInfo): string {
   const entries: Array<[string, unknown]> = [
     ['interceptShellTools', config.config.interceptShellTools],
-    ['interceptMinVisibleMs', config.config.interceptMinVisibleMs],
-    ['autoCloseCommandDelayMs', config.config.autoCloseCommandDelayMs],
-    ['autoCloseFailedDelayMs', config.config.autoCloseFailedDelayMs],
     ['autoCloseToolTerminals', config.config.autoCloseToolTerminals],
     ['autoCloseNotice', config.config.autoCloseNotice],
     ['historySize', config.config.historySize],
@@ -1131,47 +1128,6 @@ export function Panel(props: PanelProps) {
     return filtered.length > 0 ? filtered : orderedSessions
   }, [conversationSessionId, onlyThisSession, orderedSessions])
 
-  const tabEntries = useMemo(() => {
-    const entries: Array<{ key: string; sessions: SessionInfo[]; representative: SessionInfo }> = []
-    const byGroup = new Map<string, number>()
-    for (const session of scopedSessions) {
-      const group = session.kind === 'command' ? session.group : undefined
-      if (group === undefined || group === '') {
-        entries.push({ key: session.id, sessions: [session], representative: session })
-        continue
-      }
-      const existing = byGroup.get(group)
-      if (existing === undefined) {
-        byGroup.set(group, entries.length)
-        entries.push({ key: `group:${group}`, sessions: [session], representative: session })
-      } else {
-        entries[existing]?.sessions.push(session)
-      }
-    }
-    return entries
-  }, [scopedSessions])
-
-  const activeGroupSessions = useMemo(() => {
-    const group = selectedSession !== null && selectedSession.kind === 'command' ? selectedSession.group : undefined
-    if (group === undefined || group === '') return null
-    const members = sessions.filter((session) => session.kind === 'command' && session.group === group)
-    if (members.length === 0) return null
-    return members.sort((left, right) => left.startedAt - right.startedAt)
-  }, [selectedSession, sessions])
-
-  const groupRef = useRef<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (activeGroupSessions === null) return
-    const element = groupRef.current
-    if (!element) return
-    try {
-      element.scrollTop = element.scrollHeight
-    } catch {
-
-    }
-  }, [activeGroupSessions])
-
   const canGroup = useMemo(
     () =>
       conversationSessionId !== undefined &&
@@ -1479,53 +1435,6 @@ export function Panel(props: PanelProps) {
     )
   }
 
-  const renderGroupTab = (entry: { key: string; sessions: SessionInfo[]; representative: SessionInfo }): JSX.Element => {
-    const groupId = entry.representative.group ?? ''
-    const active = selected !== null && selected.group === groupId && groupId !== ''
-    const state = entry.sessions.some((session) => session.state === 'running')
-      ? 'running'
-      : entry.representative.state
-    const title = `${t('groupTab')} · ${entry.sessions.length}`
-    return (
-      <div
-        key={entry.key}
-        className="dshtp-tab"
-        role="tab"
-        id={`${tabPanelId}-tab-${entry.key}`}
-        aria-controls={tabPanelId}
-        aria-selected={active}
-        aria-label={`${title}, ${entry.representative.cwd}`}
-        tabIndex={active ? 0 : -1}
-        data-active={active ? 'true' : 'false'}
-        data-state={state}
-        data-dsh-tp-group-tab={groupId}
-        title={`${title}${SEPARATOR}${entry.representative.cwd}`}
-        onClick={() => selectSession(entry.representative.id)}
-        onAuxClick={(event) => {
-          if (event.button === 1) {
-            event.preventDefault()
-            for (const member of entry.sessions) void closeTerminal(member.id)
-          }
-        }}
-      >
-        <span className="dshtp-dot" data-state={state} />
-        <span className="dshtp-tab-title">{title}</span>
-        <button
-          type="button"
-          className="dshtp-tab-close"
-          aria-label={t('closeSession')}
-          title={t('closeSession')}
-          onClick={(event) => {
-            event.stopPropagation()
-            for (const member of entry.sessions) void closeTerminal(member.id)
-          }}
-        >
-          <IconClose size={11} />
-        </button>
-      </div>
-    )
-  }
-
   const terminalNode =
     selected !== null && view.mode === 'terminal' ? (
       <TerminalView
@@ -1553,42 +1462,6 @@ export function Panel(props: PanelProps) {
         onToast={(text, kind) => showToast(text, kind === 'error' ? 'error' : 'info')}
         onController={handleController}
       />
-    ) : null
-
-  const groupView =
-    activeGroupSessions !== null && view.mode === 'terminal' ? (
-      <div className="dshtp-group" data-dsh-tp-group ref={groupRef}>
-        {activeGroupSessions.map((member) => (
-          <section key={member.id} className="dshtp-group-card" data-state={member.state}>
-            <div className="dshtp-group-head">
-              <span className="dshtp-group-cmd" title={member.command ?? member.title}>
-                {member.command ?? member.title}
-              </span>
-              <span className="dshtp-group-meta">
-                {stateLabel(member, t)}
-                {member.durationMs !== null ? ` · ${Math.round(member.durationMs)}ms` : ''}
-                {member.exitCode !== null ? ` · exit ${member.exitCode}` : ''}
-              </span>
-            </div>
-            <div className="dshtp-group-body">
-              <TerminalView
-                key={member.id}
-                sessionId={member.id}
-                clientId={clientId}
-                t={t}
-                fontSize={fontSize > 0 ? fontSize : undefined}
-                writable={false}
-                reconnectToken={reconnectToken}
-                onInfo={updateInfo}
-                onError={() => undefined}
-                onReadOnlyInput={() => undefined}
-                onSelectionChange={() => undefined}
-                onToast={() => undefined}
-              />
-            </div>
-          </section>
-        ))}
-      </div>
     ) : null
 
   const splitReadOnly =
@@ -1959,9 +1832,6 @@ export function Panel(props: PanelProps) {
           <p className="dshtp-dialog-hint">{t('configHint')}</p>
 
           {configField('interceptShellTools', String(config.config.interceptShellTools))}
-          {configField('interceptMinVisibleMs', `${config.config.interceptMinVisibleMs} ms`)}
-          {configField('autoCloseCommandDelayMs', `${config.config.autoCloseCommandDelayMs} ms`)}
-          {configField('autoCloseFailedDelayMs', `${config.config.autoCloseFailedDelayMs} ms`)}
           {configField('autoCloseToolTerminals', String(config.config.autoCloseToolTerminals))}
           {configField('autoCloseNotice', config.config.autoCloseNotice)}
           {configField('historySize', String(config.config.historySize))}

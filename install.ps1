@@ -60,7 +60,6 @@ if ($patch -notmatch 'id:\s*dsh-web-terminal') {
   name: dsh-web-terminal
   config:
     interceptShellTools: true
-    interceptMinVisibleMs: 1200
     autoCloseCommandDelayMs: 8000
     autoCloseFailedDelayMs: 30000
     autoCloseToolTerminals: true
