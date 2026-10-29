@@ -29,7 +29,7 @@ Claude 风格的可见终端面板插件，面向 DeepSeek Harness（DSH）**Web
 方式一：仓库内脚本（推荐）
 
 ```powershell
-git clone https://github.com/OWNER/dsh-web-terminal.git
+git clone https://github.com/fightingFirefox/dsh-web-terminal.git
 cd dsh-web-terminal
 pwsh -NoProfile -File install.ps1
 ```

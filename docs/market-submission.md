@@ -10,7 +10,7 @@
 data/plugins/<owner>__dsh-web-terminal.yml
 ```
 
-内容见同目录 `market-listing.yml`（把 `OWNER` 换成你的 GitHub 账号）。
+内容见同目录 `market-listing.yml`（把 `fightingFirefox` 换成你的 GitHub 账号）。
 
 ## 硬性要求（CI 会查）
 
@@ -22,11 +22,11 @@ data/plugins/<owner>__dsh-web-terminal.yml
 
 ## 步骤
 
-1. 仓库已经 local commit：`git push` 到 `github.com/OWNER/dsh-web-terminal`
+1. 仓库已经 local commit：`git push` 到 `github.com/fightingFirefox/dsh-web-terminal`
 2. GitHub 仓库页 → About 右侧 ⚙ → Topics 加 `dsh-plugin`
 3. 创建一个空提交（或等明天）满足「满 1 天」
 4. fork `awesome-dsh-plugin`
-5. 新建 `data/plugins/OWNER__dsh-web-terminal.yml`，粘贴 `docs/market-listing.yml` 内容并替换 OWNER
+5. 新建 `data/plugins/fightingFirefox__dsh-web-terminal.yml`，粘贴 `docs/market-listing.yml` 内容并替换 fightingFirefox
 6. PR 标题示例：`Add dsh-web-terminal (ui)`
 7. 等待 CI 绿 + 维护者合并
 

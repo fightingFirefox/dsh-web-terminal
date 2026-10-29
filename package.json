@@ -10,13 +10,13 @@
       "name": "dsh-web-terminal contributors"
     }
   ],
-  "homepage": "https://github.com/OWNER/dsh-web-terminal#readme",
+  "homepage": "https://github.com/fightingFirefox/dsh-web-terminal#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/dsh-web-terminal.git"
+    "url": "git+https://github.com/fightingFirefox/dsh-web-terminal.git"
   },
   "bugs": {
-    "url": "https://github.com/OWNER/dsh-web-terminal/issues"
+    "url": "https://github.com/fightingFirefox/dsh-web-terminal/issues"
   },
   "icon": "icon.svg",
   "keywords": [
