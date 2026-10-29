@@ -661,6 +661,18 @@ export function TerminalView(props: TerminalViewProps) {
         fitAddon.fit()
       } catch (error) {
         console.warn('[dsh-web-terminal] fit failed', error)
+        return
+      }
+      // Rounded cell metrics can leave the last row half outside the box.
+      const style = getComputedStyle(element)
+      const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0)
+      const available = element.clientHeight - padding
+      const screen = element.querySelector('.xterm-screen') as HTMLElement | null
+      const drawn = screen === null ? 0 : screen.getBoundingClientRect().height
+      if (current.rows > 2 && drawn > available + 1) {
+        const rowHeight = drawn / current.rows
+        const drop = Math.ceil((drawn - available) / rowHeight)
+        current.resize(current.cols, Math.max(2, current.rows - drop))
       }
     }
     let frame = 0
@@ -676,6 +688,11 @@ export function TerminalView(props: TerminalViewProps) {
     const observer = new ResizeObserver(scheduleFit)
     observer.observe(host)
     const initialTimer = window.setTimeout(scheduleFit, 30)
+    // Web fonts can change the cell height after the first fit.
+    let fontTimer = 0
+    void document.fonts?.ready.then(() => {
+      fontTimer = window.setTimeout(scheduleFit, 0)
+    }).catch(() => {})
 
     const stopThemeObserver = observeTheme(() => {
       const current = terminalRef.current
@@ -727,6 +744,7 @@ export function TerminalView(props: TerminalViewProps) {
       disposed = true
       inputQueue.pending = ''
       window.clearTimeout(initialTimer)
+      window.clearTimeout(fontTimer)
       window.clearTimeout(resizeTimer)
       if (frame !== 0) cancelAnimationFrame(frame)
       observer.disconnect()

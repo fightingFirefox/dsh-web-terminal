@@ -2484,12 +2484,8 @@ export function Panel(props: PanelProps) {
         role="tabpanel"
         aria-labelledby={selectedTabId}
         data-dsh-tp-body
-        onMouseEnter={() => setHovered(true)}
         onMouseMove={() => pauseAutoClose(selectedSession, 'hover')}
-        onMouseLeave={() => {
-          setHovered(false)
-          resumeAutoClose(selectedSession, 'hover')
-        }}
+        onMouseLeave={() => resumeAutoClose(selectedSession, 'hover')}
       >
         {bannerNodes}
         {view.mode === 'history'
