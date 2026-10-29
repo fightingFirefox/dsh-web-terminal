@@ -72,7 +72,8 @@
   "scripts": {
     "build": "node tools/build-client.mjs",
     "build:cli": "pwsh -NoProfile -File tools/build-cli.ps1",
-    "wrap": "node tools/wrap-bundle.mjs"
+    "wrap": "node tools/wrap-bundle.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dsh": {
     "bundle": {

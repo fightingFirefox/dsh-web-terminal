@@ -194,6 +194,31 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>
 }
 
+type SshProfile = { name: string; host: string; user?: string; port?: number; identityFile?: string }
+
+function parseSshProfiles(value: unknown): SshProfile[] {
+  if (!Array.isArray(value)) return []
+  const profiles: SshProfile[] = []
+  for (const item of value) {
+    const record = asRecord(item)
+    if (record === null) continue
+    const name = readString(record.name)
+    const host = readString(record.host)
+    if (name === undefined || host === undefined) continue
+    const user = readString(record.user)
+    const port = readNumber(record.port)
+    const identityFile = readString(record.identityFile)
+    profiles.push({
+      name,
+      host,
+      ...(user === undefined ? {} : { user }),
+      ...(port === undefined ? {} : { port }),
+      ...(identityFile === undefined ? {} : { identityFile }),
+    })
+  }
+  return profiles
+}
+
 function readString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined
 }
@@ -606,23 +631,7 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
       autoOpenReopenAfterClose: bool('autoOpenReopenAfterClose', true),
       exposeTools:
         config.exposeTools === 'core' || config.exposeTools === 'full' ? config.exposeTools : 'none',
-          sshProfiles: Array.isArray(config.sshProfiles)
-        ? (config.sshProfiles as unknown[])
-            .map((item) => {
-              const profile = asRecord(item)
-              const name = profile ? readString(profile.name) : undefined
-              const host = profile ? readString(profile.host) : undefined
-              if (!name || !host) return null
-              return {
-                name,
-                host,
-                user: profile ? readString(profile.user) : undefined,
-                port: profile ? readNumber(profile.port) : undefined,
-                identityFile: profile ? readString(profile.identityFile) : undefined,
-              }
-            })
-            .filter((item): item is { name: string; host: string } => item !== null)
-        : [],
+          sshProfiles: parseSshProfiles(config.sshProfiles),
     },
     sandbox: {
       mode: readString(sandbox?.mode) ?? 'danger-full-access',

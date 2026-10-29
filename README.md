@@ -191,6 +191,7 @@ pwsh -NoProfile -File uninstall.ps1
 ```powershell
 npm install
 npm run build       # node 调 esbuild
+npm run typecheck   # tsc --noEmit（需要先 npm install 装上 devDependencies）
 npm run build:cli   # 受限环境下直接调用 esbuild CLI，再执行 wrap
 ```
 
