@@ -536,7 +536,20 @@ export function apply(ctx: ClientContext): void {
             name: 'sidebar.right.pane.tab',
             key: PLUGIN_ID,
             locale: NAMESPACE,
-            inject: (sessionId: string) => ({ sessionId }),
+            inject: (session: unknown) => {
+    const record = session as { id?: unknown; sessionId?: unknown } | string | undefined
+    const value =
+      typeof record === 'string'
+        ? record
+        : record !== null && typeof record === 'object'
+          ? typeof record.id === 'string'
+            ? record.id
+            : typeof record.sessionId === 'string'
+              ? record.sessionId
+              : undefined
+          : undefined
+    return { sessionId: value }
+  },
           },
           Panel as unknown as LooseFunction,
         ),

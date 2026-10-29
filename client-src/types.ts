@@ -119,7 +119,6 @@ export interface PublicConfig {
   retainExited: number
   historySize: number
   historyPersist: boolean
-  interceptMinVisibleMs: number
   autoCloseCommandDelayMs: number
   autoCloseFailedDelayMs: number
   autoCloseToolTerminals: boolean
@@ -589,8 +588,7 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
       retainExited: number('retainExited', 10),
       historySize: number('historySize', 20),
       historyPersist: bool('historyPersist', true),
-      interceptMinVisibleMs: number('interceptMinVisibleMs', 1500),
-      autoCloseCommandDelayMs: number('autoCloseCommandDelayMs', 8000),
+          autoCloseCommandDelayMs: number('autoCloseCommandDelayMs', 8000),
       autoCloseFailedDelayMs: number('autoCloseFailedDelayMs', 30000),
       autoCloseToolTerminals: bool('autoCloseToolTerminals', true),
       autoCloseNotice:

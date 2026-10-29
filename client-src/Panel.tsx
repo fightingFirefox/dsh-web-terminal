@@ -98,7 +98,7 @@ const TOAST_MS = 2200
 const NOTICE_TOAST_MS = 6000
 const COUNTDOWN_TICK_MS = 500
 const FOLLOW_STORAGE_KEY = 'dsh-web-terminal.follow'
-const GROUP_STORAGE_KEY = 'dsh-web-terminal.only-this-session'
+const GROUP_STORAGE_KEY = 'dsh-web-terminal.only-this-session.v2'
 const FONT_SIZE_STORAGE_KEY = 'dsh-web-terminal.font-size'
 const DEFAULT_FONT_SIZE = 13
 const MIN_FONT_SIZE = 10
@@ -360,8 +360,16 @@ function useStableId(prefix: string): string {
 
 export function Panel(props: PanelProps) {
   const t = props.t ?? fallbackTranslate
-  const conversationSessionId =
-    typeof props.sessionId === 'string' && props.sessionId !== '' ? props.sessionId : undefined
+  const injectedSession = (props as { session?: { id?: unknown } }).session
+  const rawSessionId =
+    typeof props.sessionId === 'string' && props.sessionId !== ''
+      ? props.sessionId
+      : typeof injectedSession?.id === 'string' && injectedSession.id !== ''
+        ? injectedSession.id
+        : typeof props.sessionId === 'object' && props.sessionId !== null && typeof (props.sessionId as { id?: unknown }).id === 'string'
+          ? (props.sessionId as { id: string }).id
+          : undefined
+  const conversationSessionId = rawSessionId === '' ? undefined : rawSessionId
   const clientId = getClientId()
 
   const [sessions, setSessions] = useState<SessionInfo[]>([])
@@ -385,6 +393,12 @@ export function Panel(props: PanelProps) {
   const [onlyThisSession, setOnlyThisSession] = useState<boolean>(() =>
     readStoredBoolean(GROUP_STORAGE_KEY, true),
   )
+  const scopedSessions = useMemo(() => {
+    if (!onlyThisSession || conversationSessionId === undefined) return sessions
+    return sessions.filter(
+      (session) => session.sessionId === undefined || session.sessionId === conversationSessionId,
+    )
+  }, [conversationSessionId, onlyThisSession, sessions])
   const [unread, setUnread] = useState<Set<string>>(() => new Set())
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogKind>(null)
@@ -592,12 +606,12 @@ export function Panel(props: PanelProps) {
 
   useEffect(() => {
     const known = knownIdsRef.current
-    const fresh = sessions.filter((session) => !known.has(session.id))
+    const fresh = scopedSessions.filter((session) => !known.has(session.id))
     for (const session of sessions) known.add(session.id)
     if (!initializedRef.current) {
       initializedRef.current = true
       if (selectedIdRef.current === null) {
-        const preferred = pickPreferred(sessions)
+        const preferred = pickPreferred(scopedSessions)
         if (preferred) setSelectedId(preferred.id)
       }
       return
@@ -615,17 +629,17 @@ export function Panel(props: PanelProps) {
       }
       return next
     })
-  }, [sessions])
+  }, [scopedSessions, sessions])
 
   useEffect(() => {
-    if (sessions.length === 0) {
+    if (scopedSessions.length === 0) {
       if (selectedId !== null) setSelectedId(null)
       return
     }
-    if (selectedId !== null && sessions.some((session) => session.id === selectedId)) return
-    const preferred = pickPreferred(sessions)
+    if (selectedId !== null && scopedSessions.some((session) => session.id === selectedId)) return
+    const preferred = pickPreferred(scopedSessions)
     setSelectedId(preferred ? preferred.id : null)
-  }, [sessions, selectedId])
+  }, [scopedSessions, selectedId])
 
   useEffect(() => {
     setConnection('connecting')
@@ -665,17 +679,17 @@ export function Panel(props: PanelProps) {
 
 
   const selectedSession = useMemo(() => {
-    const fromList = sessions.find((session) => session.id === selectedId) ?? null
+    const fromList = scopedSessions.find((session) => session.id === selectedId) ?? null
     if (fromList) return fromList
-    if (sessions.length === 0) return null
-    return pickPreferred(sessions) ?? null
-  }, [sessions, selectedId])
+    if (scopedSessions.length === 0) return null
+    return pickPreferred(scopedSessions) ?? null
+  }, [scopedSessions, selectedId])
 
   const splitSession = useMemo(() => {
     if (splitId === null) return null
-    const found = sessions.find((session) => session.id === splitId) ?? null
+    const found = scopedSessions.find((session) => session.id === splitId) ?? null
     return found !== null && found.id === selectedId ? null : found
-  }, [sessions, splitId, selectedId])
+  }, [scopedSessions, splitId, selectedId])
 
   useEffect(() => {
     storeString(SPLIT_STORAGE_KEY, splitId ?? '')
@@ -1082,7 +1096,14 @@ export function Panel(props: PanelProps) {
       const next = !previous
       storeBoolean(FOLLOW_STORAGE_KEY, next)
       if (next) {
-        const preferred = pickPreferred(sessionsRef.current)
+        const currentConversation = conversationSessionIdRef.current
+    const visible = sessionsRef.current.filter(
+      (session) =>
+        currentConversation === undefined ||
+        session.sessionId === undefined ||
+        session.sessionId === currentConversation,
+    )
+    const preferred = pickPreferred(visible)
         if (preferred) setSelectedId(preferred.id)
         setUnread(new Set())
       }
@@ -1118,15 +1139,7 @@ export function Panel(props: PanelProps) {
 
 
 
-  const orderedSessions = useMemo(() => sortByRecency(sessions), [sessions])
-
-  const scopedSessions = useMemo(() => {
-    if (!onlyThisSession || conversationSessionId === undefined) return orderedSessions
-    const filtered = orderedSessions.filter(
-      (session) => session.sessionId === undefined || session.sessionId === conversationSessionId,
-    )
-    return filtered.length > 0 ? filtered : orderedSessions
-  }, [conversationSessionId, onlyThisSession, orderedSessions])
+  const orderedSessions = useMemo(() => sortByRecency(scopedSessions), [scopedSessions])
 
   const canGroup = useMemo(
     () =>
@@ -1842,6 +1855,7 @@ export function Panel(props: PanelProps) {
             t('shellLabel'),
             config.shell.path ?? config.shell.kind ?? '\u2014',
           )}
+          {configField('conversation', conversationSessionId ?? '—')}
           {configField('sandbox', config.sandbox.mode)}
         </>
 
