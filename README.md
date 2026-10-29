@@ -6,6 +6,10 @@ Claude 风格的可见终端面板插件，面向 DeepSeek Harness（DSH）**Web
 
 ![面板示意](docs/hero.png)
 
+面板内终端的实际渲染（Claude ANSI 调色板，浅色主题，`live_terminal_screenshot` PNG 输出）：
+
+![终端渲染](docs/screenshot-panel.png)
+
 ## 范围
 
 - 仅面向 DSH **web profile**。客户端注入 `@deepseek-ai/dsh-client-ui-sidebar-right`，
