@@ -1,10 +1,5 @@
 # dsh-web-terminal - installer for the DSH web profile (PowerShell 7).
 #
-#   pwsh -NoProfile -File install.ps1 [-Force]
-#
-# Copies this repository into <DSH_HOME>/profiles/web/node_modules, installs the
-# two runtime dependencies, registers the bundle and writes the config row that
-# makes agent commands stream into the visible panel.
 $ErrorActionPreference = 'Stop'
 $force = $false
 foreach ($a in $args) { if ($a -eq '-Force') { $force = $true } }
@@ -61,9 +56,6 @@ $patch = if (Test-Path $patchPath) { Get-Content $patchPath -Raw } else { '' }
 if ($patch -notmatch 'id:\s*dsh-web-terminal') {
   $block = @'
 
-# dsh-web-terminal - Claude-styled visible terminal panel (web profile).
-# interceptShellTools: agent commands run inside the panel and the right
-# sidebar opens automatically when one starts.
 - id: dsh-web-terminal
   name: dsh-web-terminal
   config:

@@ -1,12 +1,5 @@
 #!/usr/bin/env node
-/**
- * Wrap the esbuild output (lib/bundle.cjs) in the DSH client-modules
- * \`window.__ModuleLoader__.load({ id, factory })\` envelope.
- *
- * The sandbox this project is built in refuses child_process spawn with piped
- * stdio, so esbuild runs as a standalone CLI (see tools/build-client.mjs) and
- * this script only reads the bundle back and wraps it.
- */
+// Wrap the esbuild output in the DSH ModuleLoader envelope.
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'

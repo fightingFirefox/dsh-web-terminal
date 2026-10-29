@@ -1,22 +1,6 @@
-/**
- * Stylesheet for the terminal panel (1.2.1 compact chrome).
- *
- * Kept as a plain string (no CSS modules) because the bundle is a single file;
- * `index.tsx` injects it together with xterm's own CSS into one idempotent
- * `<style data-plugin="dsh-web-terminal">` tag. Colors follow the `--dsw-*`
- * design tokens with graceful fallbacks, so both light and dark themes are
- * driven by the shell's tokens (no hard-coded light/dark colors).
- *
- * Layout contract: one 32px chrome row (new / session tabs / follow / more),
- * one optional non-blocking banner, the terminal screen with symmetric 8px
- * padding, an optional toast anchored at the bottom of the body, and a status
- * bar that is hidden in the normal state (`data-visible="false"`).
- */
+// Panel stylesheet (Claude skin).
 
 export const styles = String.raw`
-/* ------------------------------------------------------------------ */
-/* Root                                                                */
-/* ------------------------------------------------------------------ */
 
 .dshtp-root {
   position: relative;
@@ -34,7 +18,6 @@ export const styles = String.raw`
   background: transparent;
 }
 
-/* The hidden-by-default text labels inside compact buttons. */
 .dshtp-label {
   min-width: 0;
   overflow: hidden;
@@ -52,10 +35,6 @@ export const styles = String.raw`
   display: none !important;
 }
 
-/* ------------------------------------------------------------------ */
-/* Chrome: exactly one 32px row and exactly one 0.5px hairline         */
-/* ------------------------------------------------------------------ */
-
 .dshtp-chrome {
   position: relative;
   display: flex;
@@ -69,7 +48,6 @@ export const styles = String.raw`
   border-bottom: 0.5px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.2));
 }
 
-/* Shared compact icon button (24x24 minimum hit area). */
 .dshtp-new,
 .dshtp-expand,
 .dshtp-more,
@@ -142,7 +120,6 @@ export const styles = String.raw`
   height: 14px;
 }
 
-/* New terminal: the single filled affordance in the chrome. */
 .dshtp-new {
   border-radius: var(--dsw-radius-sm, 8px);
   background: var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary, #4d6bfe));
@@ -163,10 +140,6 @@ export const styles = String.raw`
   background: var(--dsw-alias-interactive-bg-active, rgba(127, 127, 127, 0.14));
   color: var(--dsw-alias-label-primary, inherit);
 }
-
-/* ------------------------------------------------------------------ */
-/* Session strip + tabs                                                */
-/* ------------------------------------------------------------------ */
 
 .dshtp-session-strip {
   display: flex;
@@ -241,7 +214,6 @@ export const styles = String.raw`
   color: var(--dsw-alias-label-primary, inherit);
 }
 
-/* Two-pixel accent so the active tab never relies on the hairline alone. */
 .dshtp-tab::before {
   content: '';
   position: absolute;
@@ -272,7 +244,6 @@ export const styles = String.raw`
   font-weight: 500;
 }
 
-/* 8px dot + 12px badge text: state is never color-only. */
 .dshtp-dot {
   flex: none;
   width: 8px;
@@ -342,8 +313,6 @@ export const styles = String.raw`
   color: var(--dsw-alias-label-primary, inherit);
 }
 
-/* Pin: hidden until hover/active/pinned, but its box is reserved so the tab
-   does not resize (visibility also keeps it out of the tab order). */
 .dshtp-tab-keep {
   visibility: hidden;
   pointer-events: none;
@@ -376,10 +345,6 @@ export const styles = String.raw`
   background: var(--dsw-alias-interactive-bg-hover-danger, rgba(220, 60, 60, 0.14));
   color: var(--dsw-alias-state-error-primary, #e5484d);
 }
-
-/* ------------------------------------------------------------------ */
-/* Body / terminal screen                                              */
-/* ------------------------------------------------------------------ */
 
 .dshtp-body {
   position: relative;
@@ -431,7 +396,6 @@ export const styles = String.raw`
   background: var(--dsw-alias-scrollbar-hover-l2, var(--dsw-alias-scrollbar-bg-l2, rgba(127, 127, 127, 0.4)));
 }
 
-/* Visible keyboard focus for the emulator (xterm itself draws no ring). */
 .dshtp-screen:focus-within {
   outline: var(--dsw-focus-ring-width, 2px) solid
     var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary, #4d6bfe));
@@ -439,7 +403,6 @@ export const styles = String.raw`
   border-radius: var(--dsw-radius-sm, 8px);
 }
 
-/* Connecting skeleton/spinner shown before the first snapshot. */
 .dshtp-connecting {
   position: absolute;
   inset: 0;
@@ -530,10 +493,6 @@ export const styles = String.raw`
   height: 12px;
 }
 
-/* ------------------------------------------------------------------ */
-/* Non-blocking banner (error / warn / readonly)                      */
-/* ------------------------------------------------------------------ */
-
 .dshtp-banner {
   display: flex;
   align-items: flex-start;
@@ -584,10 +543,6 @@ export const styles = String.raw`
   justify-content: flex-end;
 }
 
-/* ------------------------------------------------------------------ */
-/* In-panel toast (bottom of the body, never the first line)          */
-/* ------------------------------------------------------------------ */
-
 .dshtp-toast {
   position: absolute;
   inset-inline: 8px;
@@ -629,8 +584,6 @@ export const styles = String.raw`
   color: inherit;
 }
 
-/* Action buttons inside the dark in-panel toast must not use the page label
-   color: they inherit the toast label and sit on translucent toast surfaces. */
 .dshtp-toast .dshtp-action {
   color: inherit;
   background: color-mix(in srgb, var(--dsw-alias-toast-label, #f4f4f5) 12%, transparent);
@@ -650,10 +603,6 @@ export const styles = String.raw`
   color: var(--dsw-alias-toast-label, #f4f4f5);
   background: color-mix(in srgb, var(--dsw-alias-toast-label, #f4f4f5) 16%, transparent);
 }
-
-/* ------------------------------------------------------------------ */
-/* Status bar (hidden unless abnormal/hover)                          */
-/* ------------------------------------------------------------------ */
 
 .dshtp-statusbar {
   position: absolute;
@@ -676,9 +625,6 @@ export const styles = String.raw`
   overflow: hidden;
 }
 
-/* The status bar overlays the body instead of taking layout space: hovering
-   the panel must not shrink the xterm grid (and post a PTY resize) on every
-   mouse enter. Keep the transient toast above the bar when both are visible. */
 .dshtp-root:has(.dshtp-statusbar[data-visible='true']) .dshtp-toast {
   inset-block-end: 32px;
 }
@@ -708,10 +654,6 @@ export const styles = String.raw`
 .dshtp-statusbar .dshtp-readonly-badge {
   height: 18px;
 }
-
-/* ------------------------------------------------------------------ */
-/* Popup menu / context menu                                           */
-/* ------------------------------------------------------------------ */
 
 .dshtp-menu,
 .dshtp-context-menu {
@@ -807,7 +749,6 @@ export const styles = String.raw`
   background: var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.2));
 }
 
-/* Shortcut caps inside menus / dialogs / help. */
 .dshtp-root kbd,
 .dshtp-global-toast kbd {
   display: inline-flex;
@@ -830,10 +771,6 @@ export const styles = String.raw`
 .dshtp-dialog kbd {
   margin-inline-start: auto;
 }
-
-/* ------------------------------------------------------------------ */
-/* Shared compact action buttons (dialog / banner / status / toast)    */
-/* ------------------------------------------------------------------ */
 
 .dshtp-action,
 .dshtp-dialog-action,
@@ -930,10 +867,6 @@ export const styles = String.raw`
 .dshtp-global-toast-action:hover {
   background: color-mix(in srgb, var(--dsw-alias-toast-label, #f4f4f5) 24%, transparent);
 }
-
-/* ------------------------------------------------------------------ */
-/* Dialog (config / history / shortcuts help)                         */
-/* ------------------------------------------------------------------ */
 
 .dshtp-dialog {
   position: fixed;
@@ -1068,10 +1001,6 @@ export const styles = String.raw`
   flex-wrap: wrap;
 }
 
-/* ------------------------------------------------------------------ */
-/* Search bar                                                          */
-/* ------------------------------------------------------------------ */
-
 .dshtp-search-bar {
   position: absolute;
   inset-inline: 8px;
@@ -1125,10 +1054,6 @@ export const styles = String.raw`
   color: var(--dsw-alias-state-error-primary, #e5484d);
 }
 
-/* ------------------------------------------------------------------ */
-/* History list                                                        */
-/* ------------------------------------------------------------------ */
-
 .dshtp-history-list {
   display: flex;
   flex-direction: column;
@@ -1139,7 +1064,6 @@ export const styles = String.raw`
   scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, rgba(127, 127, 127, 0.3)) transparent;
 }
 
-/* Full-body read-only history view (not the dialog list). */
 .dshtp-history-view {
   display: flex;
   flex-direction: column;
@@ -1284,10 +1208,6 @@ export const styles = String.raw`
   text-align: center;
 }
 
-/* ------------------------------------------------------------------ */
-/* Sandbox / read-only badges                                          */
-/* ------------------------------------------------------------------ */
-
 .dshtp-sandbox-badge,
 .dshtp-readonly-badge {
   display: inline-flex;
@@ -1322,10 +1242,6 @@ export const styles = String.raw`
   width: 12px;
   height: 12px;
 }
-
-/* ------------------------------------------------------------------ */
-/* Empty / error / loading states                                     */
-/* ------------------------------------------------------------------ */
 
 .dshtp-empty,
 .dshtp-error {
@@ -1393,12 +1309,6 @@ export const styles = String.raw`
   margin-top: 4px;
 }
 
-/* ------------------------------------------------------------------ */
-/* Global notice toast (rendered from index.tsx shell.overlay)         */
-/* ------------------------------------------------------------------ */
-
-/* Optional stack wrapper: keeps a welcome card and several failure toasts
-   from overlapping at the same fixed corner. */
 .dshtp-global-toast-stack {
   position: fixed;
   inset-block-end: 24px;
@@ -1496,10 +1406,6 @@ export const styles = String.raw`
   color: var(--dsw-alias-toast-bg, #1e2026);
 }
 
-/* ------------------------------------------------------------------ */
-/* Focus visibility                                                    */
-/* ------------------------------------------------------------------ */
-
 .dshtp-root :is(
   .dshtp-new,
   .dshtp-more,
@@ -1538,10 +1444,6 @@ export const styles = String.raw`
 .dshtp-toast .dshtp-action:focus-visible {
   outline-offset: -2px;
 }
-
-/* ------------------------------------------------------------------ */
-/* Narrow pane: only optional labels/controls give way                 */
-/* ------------------------------------------------------------------ */
 
 @container dshtp (max-width: 340px) {
   .dshtp-label {
@@ -1589,10 +1491,6 @@ export const styles = String.raw`
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Reduced motion                                                     */
-/* ------------------------------------------------------------------ */
-
 @media (prefers-reduced-motion: reduce) {
   .dshtp-root *,
   .dshtp-global-toast * {
@@ -1601,10 +1499,6 @@ export const styles = String.raw`
     scroll-behavior: auto !important;
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Keyframes                                                          */
-/* ------------------------------------------------------------------ */
 
 @keyframes dshtp-spin {
   to {
@@ -1628,9 +1522,6 @@ export const styles = String.raw`
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Focus mode: a wide, readable terminal above the sidebar             */
-/* ------------------------------------------------------------------ */
 .dshtp-focus-backdrop {
   position: fixed;
   inset: 0;
@@ -1697,17 +1588,6 @@ export const styles = String.raw`
   }
 }
 
-
-/* ================================================================== */
-/* Claude Code Desktop skin — dsh-web-terminal                 */
-/*                                                                     */
-/* The base rules above are token-driven on purpose; this block only   */
-/* refines typography, edges, radii and surfaces to the Claude Code    */
-/* Desktop idiom. It keeps every layout contract intact (32→34px       */
-/* chrome, symmetric screen padding, collapsed status bar) so the      */
-/* panel geometry still matches the host's sidebar seats.              */
-/* ================================================================== */
-
 .dshtp-root {
   --dshtp-ui-font: var(--dsh-claude-font-ui, "Claude Style Inter", Inter, "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif);
   --dshtp-serif: var(--dsh-claude-font-serif, "Claude Style Noto Serif", Georgia, "Noto Serif SC", serif);
@@ -1729,7 +1609,6 @@ export const styles = String.raw`
   -webkit-font-smoothing: antialiased;
 }
 
-/* Chrome: one calm row, one hairline, no shadow. */
 .dshtp-chrome {
   height: 34px;
   min-height: 34px;
@@ -1774,7 +1653,6 @@ export const styles = String.raw`
   color: var(--dshtp-accent);
 }
 
-/* Session strip: quieter chips, the active one carries the accent bar. */
 .dshtp-session-strip {
   gap: 2px;
 }
@@ -1822,7 +1700,6 @@ export const styles = String.raw`
   font-weight: 560;
 }
 
-/* Badges: pill shaped, tabular, never louder than the title. */
 .dshtp-tab-badge {
   height: 17px;
   padding: 0 6px;
@@ -1832,7 +1709,6 @@ export const styles = String.raw`
   letter-spacing: 0.02em;
 }
 
-/* Screen: a touch more breathing room than the dense default. */
 .dshtp-screen {
   padding: 10px 10px 8px;
 }
@@ -1842,7 +1718,6 @@ export const styles = String.raw`
   font-family: var(--dshtp-ui-font);
 }
 
-/* Banner: soft tinted card, not a full-bleed bar. */
 .dshtp-banner {
   margin: 6px 8px 0;
   border: 1px solid var(--dshtp-hairline);
@@ -1865,7 +1740,6 @@ export const styles = String.raw`
   font-family: var(--dshtp-ui-font);
 }
 
-/* Status bar: monospace, small caps feel, hairline above. */
 .dshtp-statusbar {
   border-top: 1px solid var(--dshtp-hairline);
   font-family: var(--dshtp-mono);
@@ -1879,7 +1753,6 @@ export const styles = String.raw`
   font-family: var(--dshtp-mono);
 }
 
-/* Menus. */
 .dshtp-menu,
 .dshtp-context-menu {
   border: 1px solid var(--dshtp-hairline);
@@ -1895,7 +1768,6 @@ export const styles = String.raw`
   font-size: 12.5px;
 }
 
-/* Dialogs and search. */
 .dshtp-dialog-card {
   border: 1px solid var(--dshtp-hairline);
   border-radius: 14px;
@@ -1922,7 +1794,6 @@ export const styles = String.raw`
   background: var(--dsw-alias-bg-layer-1, rgba(127, 127, 127, 0.06));
 }
 
-/* History list. */
 .dshtp-history-item {
   border-radius: var(--dshtp-radius-item);
 }
@@ -1942,7 +1813,6 @@ export const styles = String.raw`
   font-size: 10.5px;
 }
 
-/* Toasts in the shell overlay. */
 .dshtp-global-toast {
   border: 1px solid var(--dshtp-hairline);
   border-radius: var(--dshtp-radius-card);
@@ -1956,7 +1826,6 @@ export const styles = String.raw`
   font-weight: 560;
 }
 
-/* Buttons: 28px, 6px radius, accent only when primary. */
 .dshtp-action,
 .dshtp-dialog-action,
 .dshtp-banner-action,
@@ -1978,7 +1847,6 @@ export const styles = String.raw`
   color: var(--dshtp-accent-ink);
 }
 
-/* Expanded (focus) overlay inherits the card language. */
 .dshtp-root[data-expanded='true'] {
   border-radius: 14px;
   box-shadow: var(--dshtp-shadow-card);

@@ -1,16 +1,4 @@
-/**
- * xterm theme derived from the DSH design tokens (`--dsw-*` CSS variables).
- *
- * The GUI only guarantees that the tokens exist on some ancestor of the
- * sidebar; values are resolved through one hidden probe element so `var(...)`
- * chains are flattened before they reach xterm (canvas fonts cannot resolve
- * CSS variables). Falls back to a neutral dark palette when the tokens are
- * missing (e.g. while the GUI boots).
- *
- * Both the probe element and the theme MutationObserver are process-wide:
- * every TerminalView instance reads through the same probe and shares one
- * debounced observer instead of creating its own DOM node/observer.
- */
+// xterm theme derived from DSH design tokens.
 
 import type { ITheme } from '@xterm/xterm'
 
@@ -20,7 +8,6 @@ export interface TerminalTheme {
   fontSize: number
 }
 
-/** Cursor color pair that stays readable on top of the terminal background. */
 export interface CursorColors {
   cursor: string
   cursorAccent: string
@@ -30,23 +17,11 @@ const DARK_FALLBACK_BACKGROUND = '#17191d'
 const LIGHT_FALLBACK_BACKGROUND = '#ffffff'
 const FALLBACK_FOREGROUND = '#e6e6e6'
 
-/**
- * DSH ships a monospace stack after the user's Settings → terminal font list.
- * Never hand xterm only the user list: a missing font would fall through to a
- * proportional browser default.
- */
 const MONO_STACK = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'
 const FALLBACK_FONT = `Consolas, "Cascadia Mono", ${MONO_STACK}`
 
-/** Keep in step with the DSH Settings → terminal font size default (13px). */
 const FONT_SIZE = 13
 
-/**
- * Claude Code Desktop ANSI palette. The eight normal steps are muted and warm
- * so long agent logs read like prose; the bright steps lift just enough for
- * emphasis without turning the screen into a rainbow. Backgrounds come from
- * the theme tokens, never from this table.
- */
 const CLAUDE_DARK_ANSI: ITheme = {
   black: '#2b2b28',
   red: '#e08b6f',
@@ -85,24 +60,12 @@ const CLAUDE_LIGHT_ANSI: ITheme = {
   brightWhite: '#3d3d3a',
 }
 
-/** Accent-forward cursor, falling back to the neutral rule when it would vanish. */
 const CLAUDE_ACCENT = '#d97757'
 
-/** WCAG 1.4.11 non-text contrast for the cursor against its cell. */
 const MIN_CURSOR_CONTRAST = 3
 
-/** Coalesce bursts of theme mutations (CSS-variable writes, class flips). */
 const THEME_DEBOUNCE_MS = 100
 
-/* ------------------------------------------------------------------ */
-/* Shared hidden probe                                                 */
-/* ------------------------------------------------------------------ */
-
-/**
- * One hidden probe reused for every token lookup. Appending/removing a probe
- * per color forced a document style recalc each time and churned the DOM; the
- * element is kept attached and re-created only if the body was replaced.
- */
 let probeElement: HTMLDivElement | null = null
 
 function ensureProbe(): HTMLDivElement | null {
@@ -146,18 +109,12 @@ function resolveFontFamily(variable: string, fallback: string): string {
   return value === '' ? fallback : value
 }
 
-/**
- * Read a font list the theme presenter writes inline on `<body>`
- * (`--dsh-font-family-<role>`, see dsh-client-ui-layout "主题呈现").
- * Absent/empty means "use the built-in stack".
- */
 function readBodyFontFamily(variable: string): string | undefined {
   if (typeof document === 'undefined' || !document.body) return undefined
   const value = getComputedStyle(document.body).getPropertyValue(variable).trim()
   return value === '' ? undefined : value
 }
 
-/** Read a px-valued font size the theme presenter writes on `<body>`. */
 function readBodyFontSize(variable: string, fallback: number): number {
   if (typeof document === 'undefined' || !document.body) return fallback
   const raw = getComputedStyle(document.body).getPropertyValue(variable).trim()
@@ -174,20 +131,11 @@ function isTransparent(color: string): boolean {
   )
 }
 
-/**
- * Append the built-in monospace stack to a user-supplied font list. A user
- * font that is missing on the machine then degrades to monospace instead of
- * the browser's proportional default.
- */
 export function appendMonoStack(fontFamily: string): string {
   const trimmed = fontFamily.trim().replace(/,\s*$/u, '')
   if (trimmed === '') return MONO_STACK
   return `${trimmed}, ${MONO_STACK}`
 }
-
-/* ------------------------------------------------------------------ */
-/* Color math                                                          */
-/* ------------------------------------------------------------------ */
 
 interface Rgba {
   r: number
@@ -254,26 +202,18 @@ function relativeLuminance(color: string): number {
   return 0.2126 * (channels[0] ?? 0) + 0.7152 * (channels[1] ?? 0) + 0.0722 * (channels[2] ?? 0)
 }
 
-/** WCAG contrast ratio between two opaque colors (1–21). */
 export function contrastRatio(foreground: string, background: string): number {
   const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background))
   const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background))
   return (lighter + 0.05) / (darker + 0.05)
 }
 
-/** Black or white, whichever is more readable on top of `color`. */
 function readableOn(color: string): string {
   return contrastRatio(color, '#000000') >= contrastRatio(color, '#ffffff')
     ? '#000000'
     : '#ffffff'
 }
 
-/**
- * Pick a cursor/accent pair with at least 3:1 against the terminal background.
- * Prefer the theme foreground; fall back to black/white when a themed
- * foreground would disappear on the cell background (e.g. light background
- * with a near-white foreground token).
- */
 export function pickCursorColors(foreground: string, background: string): CursorColors {
   if (contrastRatio(foreground, background) >= MIN_CURSOR_CONTRAST) {
     return { cursor: foreground, cursorAccent: readableOn(foreground) }
@@ -283,8 +223,8 @@ export function pickCursorColors(foreground: string, background: string): Cursor
 }
 
 function resolveBackground(): string {
-  // The sidebar sits on the base surface; fall through the layer ladder if the
-  // base token is transparent (some themes use layered backgrounds only).
+
+
   for (const variable of [
     '--dsw-alias-bg-base',
     '--dsw-alias-bg-layer-1',
@@ -300,7 +240,6 @@ function resolveBackground(): string {
   return DARK_FALLBACK_BACKGROUND
 }
 
-/** Read the current DSH tokens into an xterm-compatible theme. */
 export function readTerminalTheme(): TerminalTheme {
   const background = resolveBackground()
   const dark = relativeLuminance(background) < 0.4
@@ -313,8 +252,8 @@ export function readTerminalTheme(): TerminalTheme {
     contrastRatio(accent, background) >= MIN_CURSOR_CONTRAST
       ? { cursor: accent, cursorAccent: readableOn(accent) }
       : pickCursorColors(foreground, background)
-  // The Settings → terminal font family/size are projected onto <body> by the
-  // shell's theme presenter; fall back to the code font and the default size.
+
+
   const userFontFamily =
     readBodyFontFamily('--dsh-font-family-terminal') ??
     readBodyFontFamily('--dsh-font-family-code')
@@ -328,7 +267,7 @@ export function readTerminalTheme(): TerminalTheme {
   const fontSize = readBodyFontSize('--dsh-terminal-font-size', FONT_SIZE)
   return {
     xterm: {
-      // Palette first, then the surfaces the host's tokens actually define.
+
       ...(dark ? CLAUDE_DARK_ANSI : CLAUDE_LIGHT_ANSI),
       background,
       foreground,
@@ -345,15 +284,6 @@ export function readTerminalTheme(): TerminalTheme {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Reduced motion                                                      */
-/* ------------------------------------------------------------------ */
-
-/**
- * Whether the user asked the OS/browser for reduced motion. TerminalView uses
- * this for `cursorBlink`; styles.ts also disables transitions/animations under
- * the matching media query. Safe on the server and in tests.
- */
 export function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
     return false
@@ -364,10 +294,6 @@ export function prefersReducedMotion(): boolean {
     return false
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Shared, debounced theme observer                                    */
-/* ------------------------------------------------------------------ */
 
 type ThemeListener = () => void
 
@@ -425,11 +351,6 @@ function stopThemeObservation(): void {
   }
 }
 
-/**
- * Observe theme flips (`body[data-ds-dark-theme]` and token mutations).
- * Shared by every TerminalView: one observer runs while at least one listener
- * is subscribed and mutations are coalesced by a ~100ms debounce.
- */
 export function observeTheme(listener: ThemeListener): () => void {
   if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
     return () => {}
@@ -445,6 +366,5 @@ export function observeTheme(listener: ThemeListener): () => void {
   }
 }
 
-/** Light fallback used by tests when the GUI tokens are unavailable. */
 export const FALLBACK_THEME_BACKGROUND =
   typeof window === 'undefined' ? DARK_FALLBACK_BACKGROUND : LIGHT_FALLBACK_BACKGROUND

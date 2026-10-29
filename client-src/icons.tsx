@@ -1,12 +1,4 @@
-/**
- * Small inline SVG icons for the terminal panel chrome, menus, dialogs and
- * empty/error states.
- *
- * They intentionally use `currentColor` so the DSH theme tokens drive them.
- * All glyphs share a 16x16 viewBox and the same stroke feel so buttons at
- * 14px/24px read as one family. `IconChevron` points down; rotate it with CSS
- * for the other directions.
- */
+// Inline SVG icons.
 
 import type { ReactNode } from 'react'
 
@@ -28,6 +20,7 @@ function Glyph({ size = 14, className, children }: IconProps & { children: React
     >
       {children}
     </svg>
+
   )
 }
 
@@ -41,6 +34,7 @@ export function IconPlus(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -55,6 +49,7 @@ export function IconRefresh(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -75,6 +70,7 @@ export function IconReconnect(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -99,6 +95,7 @@ export function IconCamera(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -130,6 +127,7 @@ export function IconClipboard(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -143,6 +141,7 @@ export function IconClose(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -162,6 +161,7 @@ export function IconClear(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -176,6 +176,7 @@ export function IconSearch(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -190,6 +191,7 @@ export function IconChevron(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -204,6 +206,7 @@ export function IconPin(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -231,6 +234,7 @@ export function IconHistory(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -245,6 +249,7 @@ export function IconSettings(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -255,6 +260,7 @@ export function IconMore(props: IconProps) {
       <circle cx="8" cy="8" r="1.1" fill="currentColor" />
       <circle cx="12.4" cy="8" r="1.1" fill="currentColor" />
     </Glyph>
+
   )
 }
 
@@ -276,6 +282,7 @@ export function IconExport(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -285,6 +292,7 @@ export function IconPause(props: IconProps) {
       <rect x="4.7" y="3.4" width="2.3" height="9.2" rx="1" fill="currentColor" />
       <rect x="9" y="3.4" width="2.3" height="9.2" rx="1" fill="currentColor" />
     </Glyph>
+
   )
 }
 
@@ -293,6 +301,7 @@ export function IconPlay(props: IconProps) {
     <Glyph {...props}>
       <path d="M5.3 3.5l6.5 4.5-6.5 4.5V3.5z" fill="currentColor" />
     </Glyph>
+
   )
 }
 
@@ -307,6 +316,7 @@ export function IconMaximize(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -321,6 +331,7 @@ export function IconMinimize(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -343,6 +354,7 @@ export function IconKeyboard(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -363,6 +375,7 @@ export function IconSandbox(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -388,6 +401,7 @@ export function IconLink(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -413,6 +427,7 @@ export function IconRename(props: IconProps) {
         strokeLinecap="round"
       />
     </Glyph>
+
   )
 }
 
@@ -436,6 +451,7 @@ export function IconTerminal(props: IconProps) {
         strokeLinejoin="round"
       />
     </Glyph>
+
   )
 }
 
@@ -456,5 +472,6 @@ export function IconWarning(props: IconProps) {
       />
       <circle cx="8" cy="11.3" r="0.8" fill="currentColor" />
     </Glyph>
+
   )
 }

@@ -1,19 +1,9 @@
-/**
- * Wire types shared with the host half (1.2.1).
- *
- * The canonical shape is documented in docs/impl-1.2.1-contract.md §2/§3. The
- * client deliberately parses its input defensively: the host half may be an
- * older build while the client is newer (and vice versa), so every parser
- * accepts the contracted shape plus a few plausible aliases and never throws
- * on a frame it does not recognize. Missing 1.2.1 fields get safe defaults so
- * the UI can render against a 1.2.0 host too.
- */
+// Shared client types.
 
 export type SessionKind = 'command' | 'interactive'
 export type SessionOwner = 'agent' | 'user'
 export type SessionState = 'running' | 'exited' | 'failed'
 
-/** A localhost/dev-server URL detected in the terminal output. */
 export interface PortInfo {
   url: string
   port: number
@@ -22,7 +12,6 @@ export interface PortInfo {
   lastSeenAt: number
 }
 
-/** Sandbox information published for every terminal (never enforced by the PTY). */
 export interface SandboxInfo {
   mode: string
   confined: boolean
@@ -34,7 +23,6 @@ export interface CursorPosition {
   y: number
 }
 
-/** One PTY session as published by the host (`SessionInfo` in the contract). */
 export interface SessionInfo {
   id: string
   title: string
@@ -51,7 +39,7 @@ export interface SessionInfo {
   error?: string
   createdAt: number
   updatedAt: number
-  /** 1.2.1 fields — all optional on the wire, defaulted by the parser. */
+
   signal: string | null
   startedAt: number
   endedAt: number | null
@@ -59,57 +47,47 @@ export interface SessionInfo {
   shellKind: string
   ports: PortInfo[]
   sandbox: SandboxInfo
-  /** Epoch ms at which the host will auto-close this terminal; null = never. */
+
   autoCloseAt: number | null
   autoClosePaused: boolean
-  /** The user pressed “keep”; the terminal is exempt from auto-close. */
+
   pinned: boolean
-  /** Client that currently owns input (multi-tab lease). */
+
   writerClientId?: string
 }
 
-/** A partial update carried by `state` frames (and synthesized from `exit`). */
 export type SessionInfoPatch = { id: string } & Partial<Omit<SessionInfo, 'id'>>
 
-/** `snapshot` frame / `GET /snapshot` response. */
 export interface SnapshotFrame {
   info?: SessionInfo
-  /** Serialized ANSI screen produced by the host's headless xterm. */
+
   screen: string
-  /** Plain visible screen text (used by screenshots on the host side). */
+
   text: string
   cursor?: CursorPosition
   seq?: number
-  /** Input owner at snapshot time (multi-page lease). */
+
   writerClientId?: string
 }
 
-/** `output` frame: a raw PTY chunk plus the host's monotonic sequence number. */
 export interface OutputFrame {
   seq: number | null
   chunk: string
 }
 
-/** `exit` frame. */
 export interface ExitFrame {
   exitCode: number | null
   signal?: string | null
   state?: SessionState
 }
 
-/** `capture-request` SSE frame: the agent asked for a PNG of the screen. */
 export interface CaptureRequestFrame {
   terminalId: string
   requestId: string
 }
 
-/* ------------------------------------------------------------------ */
-/* History                                                             */
-/* ------------------------------------------------------------------ */
-
 export type HistoryReason = 'auto-close' | 'closed' | 'failed'
 
-/** One closed command terminal kept for review (`HistoryEntry` in the contract). */
 export interface HistoryEntry {
   id: string
   title: string
@@ -130,11 +108,6 @@ export interface HistoryEntry {
   sandbox: SandboxInfo
 }
 
-/* ------------------------------------------------------------------ */
-/* Config                                                              */
-/* ------------------------------------------------------------------ */
-
-/** Public (path-free) effective config returned by `GET /config`. */
 export interface PublicConfig {
   interceptShellTools: boolean
   scrollback: number
@@ -157,7 +130,6 @@ export interface PublicConfig {
   [key: string]: unknown
 }
 
-/** `GET /config` response. */
 export interface ConfigInfo {
   version: string
   config: PublicConfig
@@ -165,26 +137,20 @@ export interface ConfigInfo {
   shell: { kind?: string; path?: string | null }
 }
 
-/* ------------------------------------------------------------------ */
-/* Global SSE notices                                                  */
-/* ------------------------------------------------------------------ */
-
-/** `notice` frame: a one-shot command terminal was auto-closed. */
 export interface AutoCloseNotice {
   type: 'auto-close'
   reason: 'failed' | 'succeeded'
   terminalId: string
-  /** Id of the history entry written for the closed terminal (1.2.1). */
+
   historyId?: string
   title: string
   exitCode?: number | null
   signal?: string | null
-  /** Last non-empty output line, ANSI-stripped, ≤160 chars (host-truncated). */
+
   excerpt?: string
   durationMs?: number
 }
 
-/** `notice` frame: a command finished but its terminal stays open. */
 export interface CommandFinishedNotice {
   type: 'command-finished'
   terminalId: string
@@ -195,7 +161,6 @@ export interface CommandFinishedNotice {
   keepOpen: boolean
 }
 
-/** `notice` frame: a new localhost URL was detected in the output. */
 export interface PortNotice {
   type: 'port'
   terminalId: string
@@ -204,7 +169,6 @@ export interface PortNotice {
   host: string
 }
 
-/** `notice` frame: the agent requested a PNG capture from this client. */
 export interface CaptureRequestNotice {
   type: 'capture-request'
   terminalId: string
@@ -217,12 +181,7 @@ export type Notice =
   | PortNotice
   | CaptureRequestNotice
 
-/** Backwards-compatible alias (1.2.0 name). */
 export type TerminalNotice = Notice
-
-/* ------------------------------------------------------------------ */
-/* Parsers                                                             */
-/* ------------------------------------------------------------------ */
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
@@ -249,7 +208,6 @@ function firstRecord(...values: unknown[]): Record<string, unknown> | null {
   return null
 }
 
-/** Parse a `SandboxInfo`; defaults to the historical “unconfined, not required” shape. */
 export function parseSandboxInfo(value: unknown): SandboxInfo {
   const record = asRecord(value)
   const mode = readString(record?.mode) ?? 'danger-full-access'
@@ -260,7 +218,6 @@ export function parseSandboxInfo(value: unknown): SandboxInfo {
   }
 }
 
-/** Parse one `PortInfo`; null when the URL is missing. */
 export function parsePortInfo(value: unknown): PortInfo | null {
   const record = asRecord(value)
   if (!record) return null
@@ -283,7 +240,6 @@ function parsePortList(value: unknown): PortInfo[] {
     .filter((item): item is PortInfo => item !== null)
 }
 
-/** Parse a full `SessionInfo` (list items, snapshots, `state` frames). */
 export function parseSessionInfo(value: unknown): SessionInfo | null {
   const record = asRecord(value)
   if (!record) return null
@@ -337,7 +293,6 @@ export function parseSessionInfo(value: unknown): SessionInfo | null {
   return info
 }
 
-/** Parse a partial session update; unknown ids are ignored by the panel. */
 export function parseSessionPatch(value: unknown): SessionInfoPatch | null {
   const outer = asRecord(value)
   if (!outer) return null
@@ -405,7 +360,6 @@ export function parseSessionPatch(value: unknown): SessionInfoPatch | null {
   return patch as SessionInfoPatch
 }
 
-/** Parse the global `sessions` SSE frame: a list or a single updated session. */
 export function parseSessionsPayload(value: unknown): SessionInfo[] | SessionInfo | null {
   if (Array.isArray(value)) {
     return value
@@ -420,7 +374,6 @@ export function parseSessionsPayload(value: unknown): SessionInfo[] | SessionInf
   return parseSessionInfo(value)
 }
 
-/** Parse a `snapshot` frame or the `GET /snapshot` response. */
 export function parseSnapshot(value: unknown): SnapshotFrame | null {
   const record = asRecord(value)
   if (!record) return null
@@ -446,7 +399,6 @@ export function parseSnapshot(value: unknown): SnapshotFrame | null {
   return snapshot
 }
 
-/** Parse an `output` frame. Accepts `{chunk}`, `{data}`, `{output}` or a raw string. */
 export function parseOutput(value: unknown): OutputFrame | null {
   if (typeof value === 'string') return { seq: null, chunk: value }
   const record = asRecord(value)
@@ -461,7 +413,6 @@ export function parseOutput(value: unknown): OutputFrame | null {
   return { seq, chunk }
 }
 
-/** Parse an `exit` frame. */
 export function parseExit(value: unknown): ExitFrame | null {
   const record = asRecord(value)
   if (!record) return null
@@ -481,7 +432,6 @@ export function parseExit(value: unknown): ExitFrame | null {
   return { exitCode, signal, state }
 }
 
-/** Parse a `capture-request` frame (`{terminalId, requestId}` and aliases). */
 export function parseCaptureRequest(value: unknown): CaptureRequestFrame | null {
   const record = asRecord(value)
   if (!record) return null
@@ -492,7 +442,6 @@ export function parseCaptureRequest(value: unknown): CaptureRequestFrame | null 
   return { terminalId, requestId }
 }
 
-/** Parse one `notice` frame of any 1.2.1 type (and the legacy 1.2.0 shape). */
 export function parseNotice(value: unknown): Notice | null {
   const record = asRecord(value)
   if (!record) return null
@@ -528,7 +477,7 @@ export function parseNotice(value: unknown): Notice | null {
     if (requestId === undefined || requestId === '') return null
     return { type, terminalId, requestId }
   }
-  // `auto-close` (legacy frames may omit `type` but always carry a reason).
+
   const reason =
     record.reason === 'failed' || record.reason === 'succeeded'
       ? record.reason
@@ -558,7 +507,6 @@ export function parseNotice(value: unknown): Notice | null {
   return notice
 }
 
-/** Parse a `HistoryEntry`; null when the record is unusable. */
 export function parseHistoryEntry(value: unknown): HistoryEntry | null {
   const record = asRecord(value)
   if (!record) return null
@@ -590,7 +538,6 @@ export function parseHistoryEntry(value: unknown): HistoryEntry | null {
   return entry
 }
 
-/** Parse a `GET /history` payload (`{entries}` or a bare array). */
 export function parseHistoryPayload(value: unknown): HistoryEntry[] {
   const record = asRecord(value)
   const raw = Array.isArray(value)
@@ -605,7 +552,6 @@ export function parseHistoryPayload(value: unknown): HistoryEntry[] {
     .filter((item): item is HistoryEntry => item !== null)
 }
 
-/** Parse a `GET /config` payload; returns null when the body is unusable. */
 export function parseConfigInfo(value: unknown): ConfigInfo | null {
   const record = asRecord(value)
   if (!record) return null
@@ -654,7 +600,6 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
   }
 }
 
-/** Narrow a patch to a full `SessionInfo` (used before inserting unknowns). */
 export function isFullSessionInfo(value: SessionInfo | SessionInfoPatch): value is SessionInfo {
   const candidate = value as Partial<SessionInfo>
   return (
@@ -667,7 +612,6 @@ export function isFullSessionInfo(value: SessionInfo | SessionInfoPatch): value 
   )
 }
 
-/** Drop `undefined` entries so a patch can never erase known fields. */
 export function stripUndefined(patch: SessionInfoPatch): SessionInfoPatch {
   const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(patch)) {

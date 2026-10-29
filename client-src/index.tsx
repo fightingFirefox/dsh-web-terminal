@@ -1,19 +1,4 @@
-/**
- * dsh-web-terminal — browser half (esbuild bundle entry) — 1.3.0.
- *
- * Registers:
- *  - the `zh`/`en` locale namespace,
- *  - the `terminal-panel` right-sidebar tab type + guide entry,
- *  - the panel body seat (`sidebar.right.pane.tab`),
- *  - the `dsh-web-terminal.*` shortcut commands,
- *  - a root `shell.overlay` watcher that renders global failure toasts,
- *    auto-opens the panel per DSH conversation (with retries) and shows the
- *    one-time welcome.
- *
- * The file is bundled by tools/build-client.mjs into lib/client.js and wrapped
- * in the `window.__ModuleLoader__.load({ id, factory })` format expected by the
- * DSH client-modules bootstrap.
- */
+// dsh-web-terminal client entry: registers the sidebar tab, locale, keymap and global watcher.
 
 import { useEffect, useRef, useState } from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
@@ -34,17 +19,13 @@ const STYLE_ATTRIBUTE = 'data-plugin'
 const COMMAND_EVENT = 'dsh-web-terminal:command'
 const WELCOME_STORAGE_KEY = 'dsh-web-terminal.welcome.v1'
 const TOAST_TIMEOUT_MS = 8000
-/** Retry delays for auto-open when the sidebar has no on-screen conversation yet. */
+
 const OPEN_RETRY_DELAYS = [500, 1500, 3000]
-/** Retry delays for the initial session baseline (host half may still boot). */
+
 const BASELINE_RETRY_DELAYS = [500, 1500, 3000]
 
 type Translator = (key: string, params?: Record<string, unknown>) => string
 
-/* ------------------------------------------------------------------ */
-/* Loose service surface (Cordis services are runtime objects, not    */
-/* compile-time dependencies of this package).                        */
-/* ------------------------------------------------------------------ */
 type LooseFunction = (...args: never[]) => unknown
 
 interface LocaleService {
@@ -86,10 +67,6 @@ interface ClientContext {
   sidebarRightTabs: SidebarRightTabsService
 }
 
-/* ------------------------------------------------------------------ */
-/* Shared command bridge / panel presence                              */
-/* ------------------------------------------------------------------ */
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))
 }
@@ -108,10 +85,6 @@ function dispatchCommand(command: string): void {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Locale / welcome helpers                                            */
-/* ------------------------------------------------------------------ */
-
 function welcomeSeen(): boolean {
   try {
     return globalThis.localStorage?.getItem(WELCOME_STORAGE_KEY) === '1'
@@ -124,13 +97,9 @@ function markWelcomeSeen(): void {
   try {
     globalThis.localStorage?.setItem(WELCOME_STORAGE_KEY, '1')
   } catch {
-    // ignore
+
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Global notice watcher (shell.overlay)                               */
-/* ------------------------------------------------------------------ */
 
 interface GlobalToastAction {
   label: string
@@ -151,22 +120,12 @@ interface GlobalNoticeProps {
   openTabs?: OpenTabsStore
 }
 
-/**
- * Headless watcher rendered in the root `shell.overlay` seat.
- *
- *  - Consumes the global SSE feed for *failure* notices even when no panel is
- *    mounted (the panel handles its own toasts while it is open).
- *  - Auto-opens the panel once per DSH conversation when an agent command
- *    starts, retrying a few times until the sidebar has an on-screen
- *    conversation; a manual close is remembered for this page.
- *  - Shows the one-time welcome (unsandboxed disclosure + how to open).
- */
 function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
   const t = props.t ?? ((key: string) => key)
   const openPanel = props.openPanel
   const sendCommand = props.sendCommand
-  // The slot may hand a new translator identity each render; effects read the
-  // latest one through this ref so they do not resubscribe the SSE feed.
+
+
   const tRef = useRef(t)
   tRef.current = t
 
@@ -187,7 +146,7 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
     }, TOAST_TIMEOUT_MS)
   }
 
-  /* --- auto-open + failure notifications ---------------------------- */
+
   useEffect(() => {
     let disposed = false
     let unsubscribe: (() => void) | undefined
@@ -233,7 +192,7 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
     }
 
     const start = async (): Promise<void> => {
-      // Seed the baseline so historical sessions never trigger the auto-open.
+
       for (let attempt = 0; ; attempt += 1) {
         try {
           const baseline = await listSessions()
@@ -253,7 +212,7 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         onSessions: inspect,
         onNotice: (notice) => {
           if (disposed) return
-          // While the panel is mounted it renders its own actionable toast.
+
           if (isPanelMounted()) return
           const failure = describeFailure(tRef.current, notice)
           if (failure !== null) pushToast(failure)
@@ -266,10 +225,10 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
       disposed = true
       unsubscribe?.()
     }
-    // `openPanel` is stable for the lifetime of this component.
+
   }, [openPanel])
 
-  /* --- remember a manual close so it is not re-opened ---------------- */
+
   useEffect(() => {
     const openTabs = props.openTabs
     if (openTabs === undefined) return
@@ -295,11 +254,11 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
     }
   }, [props.openTabs])
 
-  /* --- welcome -------------------------------------------------------- */
+
   useEffect(() => {
     if (!welcome) return
     const timer = window.setTimeout(() => {
-      // Never nag forever: hide after a while without marking it as seen.
+
       setWelcome(false)
     }, TOAST_TIMEOUT_MS * 3)
     return () => window.clearTimeout(timer)
@@ -315,7 +274,9 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
       {welcome ? (
         <div className="dshtp-global-toast" role="status" aria-live="polite">
           <div className="dshtp-global-toast-title">{t('welcomeTitle')}</div>
+
           <div className="dshtp-global-toast-body">{t('welcomeBody')}</div>
+
           <div className="dshtp-global-toast-actions">
             <button
               type="button"
@@ -329,10 +290,13 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
             >
               {t('welcomeOpen')}
             </button>
+
             <button type="button" className="dshtp-action" onClick={dismissWelcome}>
               {t('welcomeDontShow')}
             </button>
+
           </div>
+
           <button
             type="button"
             className="dshtp-global-toast-close"
@@ -342,13 +306,17 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
           >
             {'\u00d7'}
           </button>
+
         </div>
+
       ) : null}
       {toasts.map((toast) => (
         <div className="dshtp-global-toast" role="alert" key={toast.id}>
           <div className="dshtp-global-toast-title">{toast.title}</div>
+
           {toast.body !== undefined ? (
             <div className="dshtp-global-toast-body">{toast.body}</div>
+
           ) : null}
           {toast.actions.length > 0 ? (
             <div className="dshtp-global-toast-actions">
@@ -364,8 +332,10 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
                 >
                   {action.label}
                 </button>
+
               ))}
             </div>
+
           ) : null}
           <button
             type="button"
@@ -378,13 +348,15 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
           >
             {'\u00d7'}
           </button>
+
         </div>
+
       ))}
     </div>
+
   )
 }
 
-/** Map a failure notice to a global toast; null for non-failures. */
 function describeFailure(
   t: Translator,
   notice: Notice,
@@ -416,10 +388,6 @@ function describeFailure(
   return null
 }
 
-/* ------------------------------------------------------------------ */
-/* Style injection                                                     */
-/* ------------------------------------------------------------------ */
-
 function injectStyles(): void {
   if (typeof document === 'undefined') return
   if (document.querySelector(`style[${STYLE_ATTRIBUTE}="${PLUGIN_ID}"]`) !== null) return
@@ -428,10 +396,6 @@ function injectStyles(): void {
   tag.textContent = xtermCss + '\n' + styles
   document.head.appendChild(tag)
 }
-
-/* ------------------------------------------------------------------ */
-/* Plugin entry                                                        */
-/* ------------------------------------------------------------------ */
 
 const artworkIcon = (primitives as Record<string, unknown>).PluginArtworkTerminal as
   | ((props: { size?: number }) => unknown)
@@ -452,7 +416,7 @@ export function apply(ctx: ClientContext): void {
 
   const t = ctx.locale.bind(NAMESPACE)
 
-  /** Reveal the panel tab; returns false when the sidebar refuses (no scene). */
+
   const openPanel = (): boolean => {
     const sidebar = ctx.sidebarRight
     if (sidebar === undefined) return false
@@ -468,10 +432,7 @@ export function apply(ctx: ClientContext): void {
     }
   }
 
-  /**
-   * Deliver one keyboard command to the mounted panel. When no panel is
-   * mounted yet, open the sidebar tab first and retry dispatching briefly.
-   */
+
   const sendCommand = (command: string): void => {
     if (isPanelMounted()) {
       dispatchCommand(command)
@@ -516,7 +477,7 @@ export function apply(ctx: ClientContext): void {
     'dsh-web-terminal: tab type',
   )
 
-  // The panel body seat. `inject` returns the props the component receives.
+
   ctx.effect(
     () =>
       ctx.slots.inject('sidebar.right.pane.tab', () =>
@@ -533,10 +494,10 @@ export function apply(ctx: ClientContext): void {
     'dsh-web-terminal: body',
   )
 
-  // Keyboard commands. The DSH shortcuts service rejects several useful Web
-  // chords as unsupported/reserved (and a global service binding can make the
-  // whole client boot fail), so the panel owns a small, predictable local
-  // keymap instead. It is active only while a DSH page is focused.
+
+
+
+
   ctx.effect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       const primary = event.ctrlKey || event.metaKey
@@ -586,7 +547,7 @@ export function apply(ctx: ClientContext): void {
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, 'dsh-web-terminal: local keymap')
 
-  // Root-scope headless watcher: auto-open + global failure toasts + welcome.
+
   ctx.effect(() => {
     try {
       return ctx.slots.inject('shell.overlay', () => {

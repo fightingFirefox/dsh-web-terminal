@@ -1,13 +1,4 @@
-/**
- * Localized copy for the terminal panel (`dshTerminalPanel` namespace).
- *
- * Chinese is the primary language; English mirrors every key. Dynamic values
- * use the `{name}` placeholder convention understood by the DSH locale service.
- *
- * 1.2.1 adds the compact chrome, search/history/context-menu, dialog,
- * sandbox/read-only and welcome copy. Placeholders used by this table:
- * `{seconds}`, `{code}`, `{current}`, `{total}`, `{count}`, `{title}`.
- */
+// zh/en messages.
 
 export type LocaleTable = Record<string, string>
 
@@ -64,7 +55,7 @@ export const zh: LocaleTable = {
   sessionCount: '共 {count} 个终端',
   sessionCountShort: '{count} 个会话',
 
-  /* ---- 1.2.1 chrome / tabs ---------------------------------------- */
+
   more: '更多操作',
   followLatest: '跟随最新输出',
   following: '正在跟随最新输出',
@@ -76,13 +67,13 @@ export const zh: LocaleTable = {
   unread: '未读',
   noSelection: '未选择会话',
 
-  /* ---- 1.2.1 search / context menu -------------------------------- */
+
   search: '搜索',
   searchPlaceholder: '在终端中查找',
   searchNoResult: '无匹配结果',
   searchResult: '第 {current} / {total} 个匹配',
 
-  /* ---- 1.2.1 history ---------------------------------------------- */
+
   history: '历史记录',
   historyEmpty: '暂无历史记录',
   historyHint: '关闭的命令会保留最近的输出，方便回看。',
@@ -90,13 +81,13 @@ export const zh: LocaleTable = {
   viewHistory: '查看历史',
   exportText: '导出文本',
 
-  /* ---- 1.2.1 auto-close / keep ------------------------------------ */
+
   autoCloseIn: '将在 {seconds} 秒后自动关闭',
   autoCloseNow: '立即关闭',
   keepOpen: '保留',
   keepOpenHint: '保留此终端，不自动关闭',
 
-  /* ---- 1.2.1 sandbox / read-only ---------------------------------- */
+
   sandboxBadge: '未沙箱',
   sandboxHint: '该终端以当前系统用户权限运行，不套用 DSH 文件沙箱。',
   readonlyBadge: '只读',
@@ -105,7 +96,7 @@ export const zh: LocaleTable = {
   notSandboxedTitle: '未套沙箱',
   notSandboxedBody: '终端命令以当前系统用户权限运行，不受 DSH 文件沙箱约束。',
 
-  /* ---- 1.2.1 status / config -------------------------------------- */
+
   hostNotReadyShort: '终端服务未就绪',
   config: '配置',
   configTitle: '生效配置',
@@ -123,7 +114,7 @@ export const zh: LocaleTable = {
   fontSizeValue: '终端字体：{size}px',
   fontSizeReset: '终端字体已恢复跟随 DSH 设置',
 
-  /* ---- 1.2.1 shortcuts / welcome ---------------------------------- */
+
   shortcuts: '快捷键',
   shortcutHelp: '终端快捷键',
   nextTab: '下一个终端',
@@ -134,7 +125,7 @@ export const zh: LocaleTable = {
   welcomeDontShow: '不再提示',
   welcomeOpen: '打开终端',
 
-  /* ---- 1.2.1 global notice ---------------------------------------- */
+
   failedCommand: '命令失败（退出码 {code}）',
   viewTerminal: '查看终端',
   dismiss: '关闭',
@@ -195,7 +186,7 @@ export const en: LocaleTable = {
   sessionCount: '{count} terminals',
   sessionCountShort: '{count} sessions',
 
-  /* ---- 1.2.1 chrome / tabs ---------------------------------------- */
+
   more: 'More actions',
   followLatest: 'Follow latest output',
   following: 'Following latest output',
@@ -207,13 +198,13 @@ export const en: LocaleTable = {
   unread: 'Unread',
   noSelection: 'No session selected',
 
-  /* ---- 1.2.1 search / context menu -------------------------------- */
+
   search: 'Search',
   searchPlaceholder: 'Find in terminal',
   searchNoResult: 'No matches',
   searchResult: '{current} of {total} matches',
 
-  /* ---- 1.2.1 history ---------------------------------------------- */
+
   history: 'History',
   historyEmpty: 'No history yet',
   historyHint: 'Recently closed commands keep their output here for review.',
@@ -221,13 +212,13 @@ export const en: LocaleTable = {
   viewHistory: 'View history',
   exportText: 'Export text',
 
-  /* ---- 1.2.1 auto-close / keep ------------------------------------ */
+
   autoCloseIn: 'Closes in {seconds}s',
   autoCloseNow: 'Close now',
   keepOpen: 'Keep',
   keepOpenHint: 'Keep this terminal open instead of auto-closing it',
 
-  /* ---- 1.2.1 sandbox / read-only ---------------------------------- */
+
   sandboxBadge: 'Unsandboxed',
   sandboxHint: 'Runs with your system user permissions, outside the DSH file sandbox.',
   readonlyBadge: 'Read-only',
@@ -237,7 +228,7 @@ export const en: LocaleTable = {
   notSandboxedBody:
     'Terminal commands run with your system user permissions and are not constrained by the DSH file sandbox.',
 
-  /* ---- 1.2.1 status / config -------------------------------------- */
+
   hostNotReadyShort: 'Terminal service not ready',
   config: 'Configuration',
   configTitle: 'Effective configuration',
@@ -255,7 +246,7 @@ export const en: LocaleTable = {
   fontSizeValue: 'Terminal font: {size}px',
   fontSizeReset: 'Terminal font follows the DSH setting again',
 
-  /* ---- 1.2.1 shortcuts / welcome ---------------------------------- */
+
   shortcuts: 'Shortcuts',
   shortcutHelp: 'Terminal shortcuts',
   nextTab: 'Next terminal',
@@ -266,7 +257,7 @@ export const en: LocaleTable = {
   welcomeDontShow: "Don't show again",
   welcomeOpen: 'Open terminal',
 
-  /* ---- 1.2.1 global notice ---------------------------------------- */
+
   failedCommand: 'Command failed (exit {code})',
   viewTerminal: 'View terminal',
   dismiss: 'Dismiss',

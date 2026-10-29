@@ -1,17 +1,4 @@
-/**
- * Full terminal panel body (1.3.1 compact chrome + focus mode).
- *
- * The panel is mounted once per right-sidebar tab occurrence. It owns:
- *  - the session list (REST seed + global SSE updates, polling fallback),
- *  - the selected session / history view,
- *  - compact chrome (new / session strip / more menu / follow toggle),
- *  - auto-close countdown + pause / keep, rename, config & shortcut help,
- *  - keyboard commands forwarded by index.tsx via a window CustomEvent.
- *
- * The host half may be older than the client; every request failure becomes a
- * retryable banner instead of a crash, and unparsable fields fall back to safe
- * defaults (types.ts parsers).
- */
+// dsh-web-terminal panel body: session strip, terminal screen, menus, history and dialogs.
 
 import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -68,11 +55,11 @@ import {
 } from './types'
 
 export interface PanelProps {
-  /** Locale-bound translator provided by the slot runtime. */
+
   t?: (key: string, params?: Record<string, unknown>) => string
-  /** Conversation session id injected by the slot runtime (grouping/cwd). */
+
   sessionId?: string
-  /** Slot hook supplied by the sidebar; kept for parity with official bodies. */
+
   useTabInfo?: () => unknown
 }
 
@@ -117,10 +104,8 @@ const MIN_FONT_SIZE = 10
 const MAX_FONT_SIZE = 20
 const SANDBOX_DISMISS_STORAGE_KEY = 'dsh-web-terminal.sandbox-dismissed'
 
-/** The most recently mounted panel wins keyboard commands (multi-panel guard). */
 const activePanel = { root: null as HTMLElement | null }
 
-/** Cross-module registry so index.tsx can tell whether a panel is mounted. */
 const panelMountRegistry: Set<object> = (() => {
   const record = globalThis as Record<string, unknown>
   const existing = record.__DSH_TP_PANELS__
@@ -142,7 +127,7 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
     if (value === '1' || value === 'true') return true
     if (value === '0' || value === 'false') return false
   } catch {
-    // storage unavailable: use the default
+
   }
   return fallback
 }
@@ -151,7 +136,7 @@ function storeBoolean(key: string, value: boolean): void {
   try {
     globalThis.localStorage?.setItem(key, value ? '1' : '0')
   } catch {
-    // ignore
+
   }
 }
 
@@ -170,7 +155,7 @@ function storeNumber(key: string, value: number): void {
   try {
     globalThis.localStorage?.setItem(key, String(value))
   } catch {
-    // ignore
+
   }
 }
 
@@ -260,7 +245,7 @@ async function writeClipboard(text: string): Promise<boolean> {
       return true
     }
   } catch {
-    // Fall back to the legacy selection-based copy below.
+
   }
   try {
     const area = document.createElement('textarea')
@@ -293,7 +278,7 @@ function downloadText(filename: string, text: string): void {
     link.remove()
     window.setTimeout(() => URL.revokeObjectURL(url), 2000)
   } catch {
-    // Download blocked: caller may show a toast.
+
   }
 }
 
@@ -351,7 +336,6 @@ function configSnippet(config: ConfigInfo): string {
   return ['- id: dsh-web-terminal', '  name: dsh-web-terminal', '  config:', ...lines].join('\n')
 }
 
-/** Stable id for the tabpanel/aria wiring (React 18 `useId` equivalent). */
 function useStableId(prefix: string): string {
   const [id] = useState(() => `${prefix}-${Math.random().toString(36).slice(2, 10)}`)
   return id
@@ -421,9 +405,9 @@ export function Panel(props: PanelProps) {
   const tabRefs = useRef(new Map<string, HTMLDivElement>())
   const tabPanelId = useStableId('dshtp-panel')
 
-  /* ---------------------------------------------------------------- */
-  /* Toasts / session updates                                          */
-  /* ---------------------------------------------------------------- */
+
+
+
   const showToast = useCallback(
     (
       text: string,
@@ -452,9 +436,9 @@ export function Panel(props: PanelProps) {
     [],
   )
 
-  /* ---------------------------------------------------------------- */
-  /* Session list                                                      */
-  /* ---------------------------------------------------------------- */
+
+
+
   const loadSessions = useCallback(async (options?: { silent?: boolean }): Promise<boolean> => {
     try {
       const next = await listSessions()
@@ -498,18 +482,18 @@ export function Panel(props: PanelProps) {
     })
   }, [])
 
-  /* ---------------------------------------------------------------- */
-  /* Selection                                                         */
-  /* ---------------------------------------------------------------- */
+
+
+
   const focusTerminalSurface = useCallback((): void => {
-    // Two frames: the first lets the freshly selected TerminalView mount, the
-    // second focuses the controller it reported.
+
+
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         try {
           controllerRef.current?.focus()
         } catch {
-          // terminal may have unmounted between frames
+
         }
       })
     })
@@ -538,8 +522,8 @@ export function Panel(props: PanelProps) {
 
   const toggleExpanded = useCallback((): void => {
     setExpanded((previous) => !previous)
-    // The terminal container changes size; let CSS/layout settle, then refit
-    // so the PTY grid grows with the focus overlay.
+
+
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         controllerRef.current?.fit()
@@ -551,9 +535,9 @@ export function Panel(props: PanelProps) {
     if (!expanded) return
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
-      // Esc belongs to the running TUI/interactive program while the terminal
-      // itself has focus; users leave focus mode with the minimize button, the
-      // backdrop, or Esc after clicking the chrome.
+
+
+
       const target = event.target
       if (target instanceof Element && (target.closest('.xterm') !== null || target.closest('.dshtp-search-bar') !== null)) return
       event.preventDefault()
@@ -566,9 +550,9 @@ export function Panel(props: PanelProps) {
 
   const selectSession = useCallback(
     (id: string): void => {
-      // Selection is only a view choice: it must not pin or pause the
-      // auto-close countdown. Hovering the terminal/tab pauses temporarily and
-      // resumes on leave; an explicit "keep" is the only permanent opt-out.
+
+
+
       setSelectedId(id)
       setFollow(false)
       storeBoolean(FOLLOW_STORAGE_KEY, false)
@@ -584,7 +568,7 @@ export function Panel(props: PanelProps) {
     [focusTerminalSurface],
   )
 
-  // Auto-select new sessions when following; otherwise mark them unread.
+
   useEffect(() => {
     const known = knownIdsRef.current
     const fresh = sessions.filter((session) => !known.has(session.id))
@@ -628,9 +612,9 @@ export function Panel(props: PanelProps) {
     setTermReady(false)
   }, [selectedId, reconnectToken])
 
-  /* ---------------------------------------------------------------- */
-  /* Session info merging (from the session SSE stream)                */
-  /* ---------------------------------------------------------------- */
+
+
+
   const updateInfo = useCallback((patch: SessionInfo | SessionInfoPatch): void => {
     setSessions((previous) => {
       const index = previous.findIndex((session) => session.id === patch.id)
@@ -651,14 +635,14 @@ export function Panel(props: PanelProps) {
       try {
         lastSizeRef.current = controller.getDimensions()
       } catch {
-        // ignore
+
       }
     }
   }, [])
 
-  /* ---------------------------------------------------------------- */
-  /* Derived selection + auto-close countdown                          */
-  /* ---------------------------------------------------------------- */
+
+
+
   const selectedSession = useMemo(() => {
     const fromList = sessions.find((session) => session.id === selectedId) ?? null
     if (fromList) return fromList
@@ -698,8 +682,8 @@ export function Panel(props: PanelProps) {
       ? selectedSession
       : null
   const countdownSeconds = countdownSession ? secondsFor(countdownSession) : 0
-  // The action banner must stay visible even after hover pauses the countdown;
-  // otherwise moving the pointer toward "立即关闭" makes the button disappear.
+
+
   const autoCloseBannerSession =
     selectedSession !== null && selectedSession.autoCloseAt !== null && !selectedSession.pinned
       ? selectedSession
@@ -719,17 +703,17 @@ export function Panel(props: PanelProps) {
           if (info) updateInfo(info)
         })
         .catch(() => {
-          // 404: the host already closed it; the sessions event catches up.
+
         })
         .finally(() => pauseRequestsRef.current.delete(session.id))
     },
     [updateInfo, updateSession],
   )
 
-  // Hovering the terminal/tab pauses the countdown only while the pointer is
-  // actively moving there; leaving resumes it. A manual selection alone never
-  // pauses, and "保留" is the explicit permanent opt-out. (v1.2.2 fixes the old
-  // one-way pause that left finished tabs looking closed but never closing.)
+
+
+
+
 
   const resumeAutoClose = useCallback(
     (session: SessionInfo | null | undefined, reason: string): void => {
@@ -743,7 +727,7 @@ export function Panel(props: PanelProps) {
           if (info) updateInfo(info)
         })
         .catch(() => {
-          // 404: the host already closed it; the sessions event catches up.
+
         })
         .finally(() => resumeRequestsRef.current.delete(session.id))
     },
@@ -766,9 +750,9 @@ export function Panel(props: PanelProps) {
     [showToast, t, updateInfo, updateSession],
   )
 
-  /* ---------------------------------------------------------------- */
-  /* Global SSE (session list + notices)                               */
-  /* ---------------------------------------------------------------- */
+
+
+
   const openHistory = useCallback(async (terminalId?: string): Promise<void> => {
     setDialog('history')
     setHistoryLoading(true)
@@ -833,7 +817,7 @@ export function Panel(props: PanelProps) {
         }
         return
       }
-      // `port` and `capture-request` are handled elsewhere (links / TerminalView).
+
     },
     [focusTerminal, openHistory, showToast, t],
   )
@@ -883,9 +867,9 @@ export function Panel(props: PanelProps) {
     return () => window.clearTimeout(timer)
   }, [toast])
 
-  /* ---------------------------------------------------------------- */
-  /* Actions                                                           */
-  /* ---------------------------------------------------------------- */
+
+
+
   const createTerminal = useCallback(async (): Promise<void> => {
     if (creatingRef.current) return
     creatingRef.current = true
@@ -909,7 +893,7 @@ export function Panel(props: PanelProps) {
           controllerRef.current?.fit()
           controllerRef.current?.focus()
         } catch {
-          // ignore
+
         }
       }, 120)
     } catch (error) {
@@ -938,11 +922,11 @@ export function Panel(props: PanelProps) {
       try {
         await closeSession(target)
       } catch (error) {
-        // 404 means it was already closed (auto-close race): that is the intent.
+
         if (!(error instanceof ApiError && error.status === 404)) {
           showToast(`${t('closeFailed')}: ${errorMessage(error)}`, 'error')
-          // The optimistic removal above was wrong: reconcile with the host so
-          // a terminal that is still alive does not silently vanish from the UI.
+
+
           void loadSessions({ silent: true })
         }
       }
@@ -964,7 +948,7 @@ export function Panel(props: PanelProps) {
     )
     if (failed.length > 0) {
       showToast(`${t('closeFailed')}: ${errorMessage(failed[0]?.reason)}`, 'error')
-      // Reconcile optimistic removals with the host.
+
       void loadSessions({ silent: true })
     }
   }, [loadSessions, showToast, t])
@@ -1096,9 +1080,9 @@ export function Panel(props: PanelProps) {
     showToast(copied ? t('configCopied') : t('copyFailed'), copied ? 'info' : 'error')
   }, [config, showToast, t])
 
-  /* ---------------------------------------------------------------- */
-  /* Session strip                                                     */
-  /* ---------------------------------------------------------------- */
+
+
+
   const orderedSessions = useMemo(() => sortByRecency(sessions), [sessions])
 
   const scopedSessions = useMemo(() => {
@@ -1126,7 +1110,7 @@ export function Panel(props: PanelProps) {
     try {
       element?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
     } catch {
-      // older browsers: ignore
+
     }
   }, [selectedSession])
 
@@ -1174,9 +1158,9 @@ export function Panel(props: PanelProps) {
       }
     }
 
-  /* ---------------------------------------------------------------- */
-  /* index.tsx shortcut/command bridge                                 */
-  /* ---------------------------------------------------------------- */
+
+
+
   useEffect(() => {
     activePanel.root = rootRef.current
     const node = rootRef.current
@@ -1221,7 +1205,7 @@ export function Panel(props: PanelProps) {
     toggleFollow,
   ])
 
-  /* Menu / dialog dismissal */
+
   useEffect(() => {
     if (!menuOpen) return
     const close = (): void => setMenuOpen(false)
@@ -1253,9 +1237,9 @@ export function Panel(props: PanelProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [dialog])
 
-  /* ---------------------------------------------------------------- */
-  /* Derived UI state                                                  */
-  /* ---------------------------------------------------------------- */
+
+
+
   const selected = selectedSession
   const readOnly =
     selected !== null &&
@@ -1300,8 +1284,8 @@ export function Panel(props: PanelProps) {
         }
       }
     }
-    // A paused countdown is not "closed": make the lingering state explicit so
-    // a finished tab never looks like it is waiting to disappear.
+
+
     if (session.autoCloseAt !== null && session.autoClosePaused && !session.pinned) {
       return { kind: 'countdown', text: t('paused'), title: t('paused') }
     }
@@ -1356,10 +1340,12 @@ export function Panel(props: PanelProps) {
       >
         <span className="dshtp-dot" data-state={session.state} />
         <span className="dshtp-tab-title">{title}</span>
+
         {badge ? (
           <span className="dshtp-tab-badge" data-kind={badge.kind} title={badge.title}>
             {badge.text}
           </span>
+
         ) : null}
         <button
           type="button"
@@ -1375,6 +1361,7 @@ export function Panel(props: PanelProps) {
         >
           <IconPin size={11} />
         </button>
+
         <button
           type="button"
           className="dshtp-tab-close"
@@ -1387,7 +1374,9 @@ export function Panel(props: PanelProps) {
         >
           <IconClose size={11} />
         </button>
+
       </div>
+
     )
   }
 
@@ -1427,10 +1416,12 @@ export function Panel(props: PanelProps) {
         <span className="dshtp-banner-text">
           {t('listError')}: {termError}
         </span>
+
         <span className="dshtp-banner-actions">
           <button type="button" className="dshtp-action" data-variant="primary" onClick={reconnect}>
             {t('reconnect')}
           </button>
+
           <button
             type="button"
             className="dshtp-banner-close"
@@ -1440,20 +1431,27 @@ export function Panel(props: PanelProps) {
           >
             <IconClose size={12} />
           </button>
+
         </span>
+
       </div>,
+
     )
   }
   if (selected !== null && connection === 'disconnected') {
     bannerNodes.push(
       <div className="dshtp-banner" data-kind="warn" role="alert" key="disconnected">
         <span className="dshtp-banner-text">{t('connectionLostScreenKept')}</span>
+
         <span className="dshtp-banner-actions">
           <button type="button" className="dshtp-action" onClick={reconnect}>
             {t('reconnect')}
           </button>
+
         </span>
+
       </div>,
+
     )
   }
   if (autoCloseBannerSession !== null) {
@@ -1471,6 +1469,7 @@ export function Panel(props: PanelProps) {
             ? t('autoClosePausedHint')
             : t('autoCloseIn', { seconds: String(autoCloseBannerSeconds) })}
         </span>
+
         <span className="dshtp-banner-actions">
           <button
             type="button"
@@ -1480,6 +1479,7 @@ export function Panel(props: PanelProps) {
           >
             {t('keepOpen')}
           </button>
+
           <button
             type="button"
             className="dshtp-action"
@@ -1487,8 +1487,11 @@ export function Panel(props: PanelProps) {
           >
             {t('autoCloseNow')}
           </button>
+
         </span>
+
       </div>,
+
     )
   }
   if (readOnly) {
@@ -1497,6 +1500,7 @@ export function Panel(props: PanelProps) {
         <span className="dshtp-banner-text">
           {t('readonlyBadge')}: {t('takeControlHint')}
         </span>
+
         <span className="dshtp-banner-actions">
           <button
             type="button"
@@ -1506,8 +1510,11 @@ export function Panel(props: PanelProps) {
           >
             {t('takeControl')}
           </button>
+
         </span>
+
       </div>,
+
     )
   }
   if (sandboxWarn) {
@@ -1515,7 +1522,9 @@ export function Panel(props: PanelProps) {
       <div className="dshtp-banner" data-kind="warn" role="status" key="sandbox">
         <span className="dshtp-banner-text">
           <strong>{t('notSandboxedTitle')}</strong> {t('notSandboxedBody')}
+
         </span>
+
         <span className="dshtp-banner-actions">
           <button
             type="button"
@@ -1529,8 +1538,11 @@ export function Panel(props: PanelProps) {
           >
             <IconClose size={12} />
           </button>
+
         </span>
+
       </div>,
+
     )
   }
 
@@ -1555,6 +1567,7 @@ export function Panel(props: PanelProps) {
             {SEPARATOR}
             {formatTime(view.entry.endedAt)}
           </span>
+
           <span className="dshtp-banner-actions">
             <button
               type="button"
@@ -1567,6 +1580,7 @@ export function Panel(props: PanelProps) {
             >
               {t('copySelection')}
             </button>
+
             <button
               type="button"
               className="dshtp-action"
@@ -1574,6 +1588,7 @@ export function Panel(props: PanelProps) {
             >
               {t('exportText')}
             </button>
+
             <button
               type="button"
               className="dshtp-action"
@@ -1582,32 +1597,45 @@ export function Panel(props: PanelProps) {
             >
               {t('viewTerminal')}
             </button>
+
           </span>
+
         </div>
+
         <pre className="dshtp-history-preview" style={{ margin: 0, flex: 1, overflow: 'auto' }}>
           {view.entry.text}
         </pre>
+
       </div>
+
     ) : null
 
   const historyDialogBody = (
     <div className="dshtp-history-list">
       {historyLoading ? (
         <div className="dshtp-history-empty">{t('loading')}</div>
+
       ) : historyError !== null ? (
         <div className="dshtp-error">
           <span className="dshtp-error-detail">{historyError}</span>
+
           <span className="dshtp-error-actions">
             <button type="button" className="dshtp-action" onClick={() => void openHistory()}>
               {t('retry')}
             </button>
+
           </span>
+
         </div>
+
       ) : historyEntries.length === 0 ? (
         <div className="dshtp-history-empty">
           <div>{t('historyEmpty')}</div>
+
           <div className="dshtp-dialog-hint">{t('historyHint')}</div>
+
         </div>
+
       ) : (
         historyEntries.map((entry) => (
           <button
@@ -1620,6 +1648,7 @@ export function Panel(props: PanelProps) {
             }}
           >
             <span className="dshtp-history-title">{entry.title}</span>
+
             <span className="dshtp-history-meta">
               {entry.exitCode === null ? '\u2014' : `exit ${entry.exitCode}`}
               {SEPARATOR}
@@ -1627,33 +1656,44 @@ export function Panel(props: PanelProps) {
               {SEPARATOR}
               {formatTime(entry.endedAt)}
             </span>
+
             <span className="dshtp-history-cwd">{entry.cwd}</span>
+
             <span className="dshtp-history-preview">
               {entry.text.split(/\r?\n/u).slice(-2).join(' ').slice(0, 160)}
             </span>
+
             <span className="dshtp-history-badge" data-reason={entry.reason}>
               {entry.reason}
             </span>
+
           </button>
+
         ))
       )}
     </div>
+
   )
 
   const configField = (label: string, value: string): JSX.Element => (
     <div className="dshtp-dialog-field" key={label}>
       <label>{label}</label>
+
       <span>{value}</span>
+
     </div>
+
   )
 
   const configDialogBody = (
     <div>
       {configLoading ? (
         <div className="dshtp-dialog-hint">{t('loading')}</div>
+
       ) : configError !== null ? (
         <div className="dshtp-error">
           <span className="dshtp-error-detail">{configError}</span>
+
           <span className="dshtp-error-actions">
             <button
               type="button"
@@ -1665,11 +1705,15 @@ export function Panel(props: PanelProps) {
             >
               {t('retry')}
             </button>
+
           </span>
+
         </div>
+
       ) : config !== null ? (
         <>
           <p className="dshtp-dialog-hint">{t('configHint')}</p>
+
           {configField('interceptShellTools', String(config.config.interceptShellTools))}
           {configField('interceptMinVisibleMs', `${config.config.interceptMinVisibleMs} ms`)}
           {configField('autoCloseCommandDelayMs', `${config.config.autoCloseCommandDelayMs} ms`)}
@@ -1686,20 +1730,27 @@ export function Panel(props: PanelProps) {
           )}
           {configField('sandbox', config.sandbox.mode)}
         </>
+
       ) : null}
     </div>
+
   )
 
   const shortcutDialogBody = (
     <div>
       <p className="dshtp-dialog-hint">{t('shortcutHelp')}</p>
+
       {shortcutRows(t).map((row) => (
         <div className="dshtp-dialog-field" key={row.label}>
           <label>{row.label}</label>
+
           <kbd>{row.keys}</kbd>
+
         </div>
+
       ))}
     </div>
+
   )
 
   const dialogTitle =
@@ -1728,6 +1779,7 @@ export function Panel(props: PanelProps) {
             >
               <div className="dshtp-dialog-header">
                 <span className="dshtp-dialog-title">{dialogTitle}</span>
+
                 <button
                   type="button"
                   className="dshtp-dialog-close"
@@ -1737,7 +1789,9 @@ export function Panel(props: PanelProps) {
                 >
                   <IconClose size={12} />
                 </button>
+
               </div>
+
               <div className="dshtp-dialog-body">
                 {dialog === 'config'
                   ? configDialogBody
@@ -1747,6 +1801,7 @@ export function Panel(props: PanelProps) {
                       ? (
                           <div className="dshtp-dialog-field">
                             <label>{t('renamePrompt')}</label>
+
                             <input
                               ref={renameInputRef}
                               className="dshtp-dialog-input"
@@ -1761,9 +1816,11 @@ export function Panel(props: PanelProps) {
                               }}
                             />
                           </div>
+
                         )
                       : shortcutDialogBody}
               </div>
+
               <div className="dshtp-dialog-footer">
                 <span className="dshtp-dialog-hint">
                   {dialog === 'rename'
@@ -1774,6 +1831,7 @@ export function Panel(props: PanelProps) {
                         ? t('configHint')
                         : ''}
                 </span>
+
                 <span className="dshtp-dialog-actions">
                   {dialog === 'config' ? (
                     <button
@@ -1784,6 +1842,7 @@ export function Panel(props: PanelProps) {
                     >
                       {t('configCopy')}
                     </button>
+
                   ) : null}
                   {dialog === 'rename' ? (
                     <button
@@ -1794,14 +1853,20 @@ export function Panel(props: PanelProps) {
                     >
                       {t('rename')}
                     </button>
+
                   ) : null}
                   <button type="button" className="dshtp-action" onClick={() => setDialog(null)}>
                     {t('dismiss')}
                   </button>
+
                 </span>
+
               </div>
+
             </div>
+
           </div>,
+
           document.body,
         )
       : null
@@ -1823,7 +1888,9 @@ export function Panel(props: PanelProps) {
         }}
       >
         <IconPlus size={13} /> {t('newTerminal')} <kbd>{primaryLabel()}+Alt+T</kbd>
+
       </button>
+
       <div className="dshtp-menu-sep" role="separator" />
       <button
         type="button"
@@ -1837,6 +1904,7 @@ export function Panel(props: PanelProps) {
       >
         <IconRename size={13} /> {t('rename')}
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1849,6 +1917,7 @@ export function Panel(props: PanelProps) {
       >
         <IconPin size={13} /> {t('keepOpen')}
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1860,7 +1929,9 @@ export function Panel(props: PanelProps) {
       >
         {expanded ? <IconMinimize size={13} /> : <IconMaximize size={13} />}{' '}
         {expanded ? t('collapse') : t('expand')} <kbd>{primaryLabel()}+Alt+Enter</kbd>
+
       </button>
+
       <div className="dshtp-menu-sep" role="separator" />
       <button
         type="button"
@@ -1869,7 +1940,9 @@ export function Panel(props: PanelProps) {
         onClick={() => adjustFont(-1)}
       >
         {t('fontSmaller')} <span className="dshtp-menu-value">{effectiveFontSize}px</span>
+
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1877,7 +1950,9 @@ export function Panel(props: PanelProps) {
         onClick={() => adjustFont(1)}
       >
         {t('fontLarger')} <span className="dshtp-menu-value">{effectiveFontSize}px</span>
+
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1887,6 +1962,7 @@ export function Panel(props: PanelProps) {
       >
         {t('fontReset')}
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1899,6 +1975,7 @@ export function Panel(props: PanelProps) {
       >
         <IconClipboard size={13} /> {t('copyScreen')}
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1910,7 +1987,9 @@ export function Panel(props: PanelProps) {
         }}
       >
         <IconClipboard size={13} /> {t('copySelection')} <kbd>{primaryLabel()}+Shift+C</kbd>
+
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1922,7 +2001,9 @@ export function Panel(props: PanelProps) {
         }}
       >
         <IconSearch size={13} /> {t('search')} <kbd>{primaryLabel()}+F</kbd>
+
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1935,6 +2016,7 @@ export function Panel(props: PanelProps) {
       >
         <IconExport size={13} /> {t('screenshot')} PNG
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -1947,6 +2029,7 @@ export function Panel(props: PanelProps) {
       >
         <IconExport size={13} /> {t('exportText')}
       </button>
+
       <div className="dshtp-menu-sep" role="separator" />
       <button
         type="button"
@@ -1962,8 +2045,10 @@ export function Panel(props: PanelProps) {
           <span className="dshtp-tab-badge" data-kind="unread">
             {unreadCount}
           </span>
+
         ) : null}
       </button>
+
       {canGroup ? (
         <button
           type="button"
@@ -1975,7 +2060,9 @@ export function Panel(props: PanelProps) {
           }}
         >
           {onlyThisSession ? <span aria-hidden="true">{'\u2713'}</span> : null} {t('title')}
+
         </button>
+
       ) : null}
       <button
         type="button"
@@ -1989,6 +2076,7 @@ export function Panel(props: PanelProps) {
       >
         {t('closeAllExited')}
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -2001,6 +2089,7 @@ export function Panel(props: PanelProps) {
       >
         {t('closeOthers')}
       </button>
+
       <div className="dshtp-menu-sep" role="separator" />
       <button
         type="button"
@@ -2013,6 +2102,7 @@ export function Panel(props: PanelProps) {
       >
         <IconReconnect size={13} /> {t('reconnect')}
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -2024,6 +2114,7 @@ export function Panel(props: PanelProps) {
       >
         <IconSettings size={13} /> {t('config')}
       </button>
+
       <button
         type="button"
         role="menuitem"
@@ -2035,12 +2126,15 @@ export function Panel(props: PanelProps) {
       >
         <IconKeyboard size={13} /> {t('shortcuts')}
       </button>
+
     </div>
+
   ) : null
 
   const toastElement = toast ? (
     <div className="dshtp-toast" role="status" aria-live="polite" aria-atomic="true">
       <span className="dshtp-toast-text">{toast.text}</span>
+
       {toast.actions.length > 0 ? (
         <span className="dshtp-toast-actions">
           {toast.actions.map((action) => (
@@ -2055,8 +2149,10 @@ export function Panel(props: PanelProps) {
             >
               {action.label}
             </button>
+
           ))}
         </span>
+
       ) : null}
       <button
         type="button"
@@ -2067,7 +2163,9 @@ export function Panel(props: PanelProps) {
       >
         <IconClose size={11} />
       </button>
+
     </div>
+
   ) : null
 
   const emptyState = (
@@ -2075,8 +2173,11 @@ export function Panel(props: PanelProps) {
       <span className="dshtp-empty-icon">
         <IconTerminal size={26} />
       </span>
+
       <span className="dshtp-empty-title">{t('empty')}</span>
+
       <span className="dshtp-empty-hint">{t('emptyHint')}</span>
+
       <span className="dshtp-empty-actions">
         <button
           type="button"
@@ -2087,11 +2188,15 @@ export function Panel(props: PanelProps) {
         >
           <IconPlus size={13} /> {t('newTerminal')}
         </button>
+
         <button type="button" className="dshtp-action" onClick={() => void openHistory()}>
           <IconHistory size={13} /> {t('history')}
         </button>
+
       </span>
+
     </div>
+
   )
 
   const errorState = (
@@ -2099,9 +2204,13 @@ export function Panel(props: PanelProps) {
       <span className="dshtp-error-icon">
         <IconWarning size={24} />
       </span>
+
       <span className="dshtp-error-title">{t('listError')}</span>
+
       {failureDetail ? <span className="dshtp-error-detail">{failureDetail}</span> : null}
+
       {failure ? <span className="dshtp-error-detail">{failure.message}</span> : null}
+
       <span className="dshtp-error-actions">
         <button
           type="button"
@@ -2112,8 +2221,11 @@ export function Panel(props: PanelProps) {
         >
           {t('retry')}
         </button>
+
       </span>
+
     </div>
+
   )
 
   const loadingState = (
@@ -2123,6 +2235,7 @@ export function Panel(props: PanelProps) {
       <div className="dshtp-skeleton" data-size="line" />
       <div className="dshtp-skeleton" data-size="line" />
     </div>
+
   )
 
   return (
@@ -2168,6 +2281,7 @@ export function Panel(props: PanelProps) {
         >
           <IconPlus size={14} />
         </button>
+
         <div
           className="dshtp-session-strip"
           role="tablist"
@@ -2177,6 +2291,7 @@ export function Panel(props: PanelProps) {
         >
           {scopedSessions.map(renderTab)}
         </div>
+
         <button
           type="button"
           className="dshtp-expand"
@@ -2192,6 +2307,7 @@ export function Panel(props: PanelProps) {
         >
           {expanded ? <IconMinimize size={14} /> : <IconMaximize size={14} />}
         </button>
+
         <button
           type="button"
           className="dshtp-more"
@@ -2205,6 +2321,7 @@ export function Panel(props: PanelProps) {
         >
           <IconMore size={14} />
         </button>
+
         <button
           type="button"
           className="dshtp-follow"
@@ -2216,6 +2333,7 @@ export function Panel(props: PanelProps) {
         >
           {follow ? <IconPause size={13} /> : <IconPlay size={13} />}
         </button>
+
         {menuElement}
       </div>
 
@@ -2254,20 +2372,24 @@ export function Panel(props: PanelProps) {
         <span className="dshtp-status-item" data-dsh-tp-status-state>
           {selected ? stateLabel(selected, t) : t('noSelection')}
         </span>
+
         {selected?.pinned ? (
           <span className="dshtp-status-item">
             <IconPin size={11} /> {t('pinned')}
           </span>
+
         ) : null}
         {selected !== null && selected.autoClosePaused && !selected.pinned ? (
           <span className="dshtp-status-item" title={t('paused')}>
             <IconPause size={11} /> {t('paused')}
           </span>
+
         ) : null}
         {countdownSession !== null && countdownSeconds > 0 ? (
           <span className="dshtp-status-item" data-dsh-tp-countdown>
             {t('autoCloseIn', { seconds: String(countdownSeconds) })}
           </span>
+
         ) : null}
         {selected !== null && !isSandboxed(selected) ? (
           <span
@@ -2278,11 +2400,13 @@ export function Panel(props: PanelProps) {
           >
             <IconSandbox size={11} /> {t('sandboxBadge')}
           </span>
+
         ) : null}
         {readOnly ? (
           <span className="dshtp-readonly-badge" title={t('takeControlHint')}>
             {t('readonlyBadge')}
           </span>
+
         ) : null}
         <span className="dshtp-status-spacer" />
         {selected !== null ? (
@@ -2290,16 +2414,20 @@ export function Panel(props: PanelProps) {
             <span className="dshtp-status-item dshtp-status-optional">
               {t('sizeLabel')} {selected.cols}x{selected.rows}
             </span>
+
             <span className="dshtp-status-item dshtp-status-optional">
               {t('cwdLabel')} {selected.cwd}
             </span>
+
             <span
               className="dshtp-status-item"
               title={streamConnected ? t('connected') : t('disconnected')}
             >
               {t('sessionCountShort', { count: String(sessions.length) })}
             </span>
+
           </>
+
         ) : null}
         {readOnly ? (
           <button
@@ -2310,16 +2438,20 @@ export function Panel(props: PanelProps) {
           >
             {t('takeControl')}
           </button>
+
         ) : null}
         {connection === 'disconnected' ? (
           <button type="button" className="dshtp-action" onClick={reconnect}>
             {t('reconnect')}
           </button>
+
         ) : null}
       </div>
 
       {dialogElement}
     </section>
+
     </>
+
   )
 }

@@ -1,19 +1,6 @@
+// Build lib/client.js with esbuild's JS API.
+
 #!/usr/bin/env node
-/**
- * Build the browser half of dsh-web-terminal.
- *
- * Bundles `client-src/index.tsx` with esbuild (CJS, browser platform, automatic
- * JSX) into one file and wraps it in the
- * `window.__ModuleLoader__.load({ id, factory })` format the DSH client-modules
- * bootstrap expects (docs/architecture.md §5.3).
- *
- * Platform-seeded modules (`react`, primitives, …) stay external; they are
- * resolved by the loader at runtime. xterm and its CSS are bundled.
- *
- * Usage:
- *   node tools/build-client.mjs             # minified build
- *   node tools/build-client.mjs --no-minify # readable build (debugging)
- */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
@@ -36,11 +23,6 @@ const minify = !args.has('--no-minify')
 
 const PLUGIN_ID = 'dsh-web-terminal'
 
-/**
- * Modules answered by the DSH platform seed table. They must never be bundled:
- * a second React copy breaks hooks, and the `@deepseek-ai/*` packages only
- * exist in the shell's module table.
- */
 const EXTERNALS = [
   'react',
   'react-dom',
@@ -70,8 +52,8 @@ function formatBytes(bytes) {
 
 async function main() {
   const startedAt = Date.now()
-  // The client reports its version through `__DSH_TERMINAL_PANEL_CLIENT__`;
-  // inject it from package.json at build time so it can never drift.
+
+
   const packageJson = JSON.parse(await readFile(join(packageDir, 'package.json'), 'utf8'))
   const version = packageJson.version
   if (typeof version !== 'string' || version === '') {
@@ -104,7 +86,7 @@ async function main() {
   }
   const bundle = result.outputFiles[0].text
 
-  // Sanity checks before writing: catch silent bundling of shell singletons.
+
   const requiredExternals = [
     'react',
     'react/jsx-runtime',
@@ -135,10 +117,10 @@ ${indent(bundle.trimEnd(), 4)}
   await mkdir(dirname(outputFile), { recursive: true })
   await writeFile(outputFile, wrapper, 'utf8')
 
-  // Verify the written file is syntactically valid CommonJS-like script.
+
   const written = await readFile(outputFile, 'utf8')
   try {
-    // eslint-disable-next-line no-new-func
+
     new Function(written)
   } catch (error) {
     throw new Error(`generated bundle is not valid JavaScript: ${error instanceof Error ? error.message : error}`)

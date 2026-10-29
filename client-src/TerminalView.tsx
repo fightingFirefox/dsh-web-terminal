@@ -1,17 +1,4 @@
-/**
- * The xterm.js screen for one PTY session (1.2.1).
- *
- * Lifecycle:
- *  - mount:      create `Terminal` + Fit/Search/WebLinks/Unicode11 addons.
- *  - subscribe:  `GET /events?id=&clientId=` streams `snapshot` -> `output`.
- *  - fallback:   if the stream never delivers a snapshot, `GET /snapshot?id=`
- *                seeds the screen.
- *  - capture:    a `capture-request` frame renders the visible buffer to a PNG
- *                canvas and POSTs the data URL back to the host.
- *
- * The component is intentionally dumb about the session list: the panel owns
- * selection, this file only renders and reports.
- */
+// xterm.js view bound to one PTY session.
 
 import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -40,7 +27,6 @@ import type {
   SnapshotFrame,
 } from './types'
 
-/** Imperative screen handle used by the panel (toolbar, menus, shortcuts). */
 export interface TerminalController {
   focus(): void
   fit(): void
@@ -54,7 +40,7 @@ export interface TerminalController {
   clearSearch(): void
   search(term: string): boolean
   openSearch(): void
-  /** Render the visible screen to a PNG data URL (optionally download it). */
+
   savePng(download?: boolean): string | null
   paste(): Promise<void>
   copySelection(): Promise<boolean>
@@ -64,28 +50,28 @@ export interface TerminalViewProps {
   sessionId: string
   clientId: string
   t: (key: string, params?: Record<string, unknown>) => string
-  /** False while another browser page owns the input lease. */
+
   writable: boolean
   reconnectToken: number
   onConnectionChange?: (connected: boolean) => void
-  /** True once the first frame has been painted (skeleton hides). */
+
   onReady?: (ready: boolean) => void
   onInfo?: (patch: SessionInfo | SessionInfoPatch) => void
-  /** Input-lease owner reported by snapshots (multi-page write protection). */
+
   onWriterChange?: (writerClientId: string | undefined) => void
   onExit?: (exit: ExitFrame) => void
-  /** A real, user-actionable error (snapshot/stream/capture); null clears it. */
+
   onError?: (message: string | null) => void
-  /** Reports a failed input POST; the Panel surfaces it as a toast. */
+
   onInputError?: (message: string) => void
-  /** User-selected terminal font size (px); undefined follows the DSH theme. */
+
   fontSize?: number
-  /** The user typed while another page owns the input lease. */
+
   onReadOnlyInput?: () => void
-  /** User touched the screen (typing/pointer/wheel): pin the selection. */
+
   onUserActivity?: () => void
   onSelectionChange?: (hasSelection: boolean) => void
-  /** Local feedback (copy/paste/search); rendered by the Panel as a toast. */
+
   onToast?: (text: string, kind?: 'info' | 'error') => void
   onController?: (controller: TerminalController | null) => void
 }
@@ -103,15 +89,15 @@ interface ContextMenuState {
 const SNAPSHOT_FALLBACK_MS = 1500
 const FORCE_FLUSH_MS = 4000
 const PENDING_LIMIT = 4000
-/** The host rejects `/input` bodies above 64KB; stay well below it. */
+
 const INPUT_CHUNK_BYTES = 32 * 1024
-/** Hard cap for the pending input queue; beyond this we drop and report. */
+
 const INPUT_QUEUE_LIMIT = 1024 * 1024
-/** Coalesce fit-driven resize POSTs while the sidebar is being dragged. */
+
 const RESIZE_DEBOUNCE_MS = 120
-/** Client-side scrollback (the host mirror is configured separately). */
+
 const SCROLLBACK_ROWS = 2000
-/** Search decoration colors (xterm requires #RRGGBB here). */
+
 const SEARCH_DECORATIONS = {
   matchBackground: '#f5c542',
   matchOverviewRuler: '#f5c542',
@@ -142,14 +128,13 @@ const ANSI_16 = [
   '#e5e5e5',
 ]
 
-/** Split `text` into a UTF-8-safe prefix of at most `maxBytes` bytes. */
 function splitByUtf8Bytes(text: string, maxBytes: number): [string, string] {
   if (text === '') return ['', '']
   const bytes = textEncoder.encode(text)
   if (bytes.byteLength <= maxBytes) return [text, '']
   let end = maxBytes
-  // Do not cut a multi-byte code point: a continuation byte (10xxxxxx) means
-  // the prefix would end mid-character.
+
+
   while (end > 0 && (bytes[end] & 0xc0) === 0x80) end -= 1
   return [textDecoder.decode(bytes.subarray(0, end)), textDecoder.decode(bytes.subarray(end))]
 }
@@ -159,7 +144,6 @@ function describeError(error: unknown): string {
   return String(error)
 }
 
-/** Shallow compare of two xterm themes so unchanged tokens cause no repaint. */
 function sameTheme(left: ITheme | undefined, right: ITheme): boolean {
   if (left === undefined) return false
   const leftRecord = left as Record<string, unknown>
@@ -171,7 +155,6 @@ function sameTheme(left: ITheme | undefined, right: ITheme): boolean {
   return true
 }
 
-/** Text of the visible viewport, matching the host's `visibleText()` helper. */
 function visibleText(terminal: Terminal): string {
   const buffer = terminal.buffer.active
   const lines: string[] = []
@@ -190,7 +173,7 @@ async function writeClipboard(text: string): Promise<boolean> {
       return true
     }
   } catch {
-    // Fall back to the legacy selection-based copy below.
+
   }
   try {
     const area = document.createElement('textarea')
@@ -210,14 +193,13 @@ async function writeClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** Read text from the clipboard (Ctrl+Shift+V / context menu). */
 async function readClipboard(): Promise<string | null> {
   try {
     if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
       return await navigator.clipboard.readText()
     }
   } catch {
-    // The browser may reject clipboard reads outside a user gesture.
+
   }
   return null
 }
@@ -226,7 +208,6 @@ function toHexColor(value: number): string {
   return `#${(value & 0xffffff).toString(16).padStart(6, '0')}`
 }
 
-/** Resolve an ANSI palette index (0-255) to a CSS color. */
 function paletteColor(index: number): string {
   const safe = Number.isFinite(index) ? Math.max(0, Math.min(255, Math.floor(index))) : 0
   const known = ANSI_16[safe]
@@ -261,7 +242,6 @@ interface CellMetrics {
   height: number
 }
 
-/** Measure the xterm cell grid; falls back to canvas font measurement. */
 function measureCell(terminal: Terminal): CellMetrics {
   const internal = terminal as unknown as {
     _core?: {
@@ -290,7 +270,7 @@ function measureCell(terminal: Terminal): CellMetrics {
       width = ctx.measureText('M').width
     }
   } catch {
-    // keep the rough fallback
+
   }
   return { width: Math.max(4, width), height: Math.max(8, Math.ceil(fontSize * lineHeight)) }
 }
@@ -301,13 +281,6 @@ interface RenderedCapture {
   height: number
 }
 
-/**
- * Render the current xterm viewport to a PNG data URL.
- *
- * Canvas drawing avoids depending on the xterm DOM renderer internals: the
- * visible buffer is re-painted cell by cell with the effective theme colors,
- * so the result matches the screen even for headless/WebGL renderers.
- */
 function renderPngCapture(terminal: Terminal): RenderedCapture | null {
   if (typeof document === 'undefined') return null
   const rows = terminal.rows
@@ -364,7 +337,7 @@ function renderPngCapture(terminal: Terminal): RenderedCapture | null {
       column += Math.max(1, width)
     }
   }
-  // Cursor: a hollow block so the screenshot shows focus without hiding text.
+
   const cursorX = buffer.cursorX
   const cursorY = buffer.cursorY
   if (cursorX >= 0 && cursorX < cols && cursorY >= 0 && cursorY < rows) {
@@ -384,7 +357,6 @@ function renderPngCapture(terminal: Terminal): RenderedCapture | null {
   }
 }
 
-/** Download a data URL as a file (user-facing "save PNG"). */
 function downloadDataUrl(dataUrl: string, filename: string): void {
   try {
     const link = document.createElement('a')
@@ -395,7 +367,7 @@ function downloadDataUrl(dataUrl: string, filename: string): void {
     link.click()
     link.remove()
   } catch {
-    // Download blocked: the caller can still surface a toast.
+
   }
 }
 
@@ -408,7 +380,7 @@ export function TerminalView(props: TerminalViewProps) {
   const searchInputRef = useRef<HTMLInputElement | null>(null)
   const callbacksRef = useRef(props)
   callbacksRef.current = props
-  /** Font size override chosen in the panel (undefined = follow DSH theme). */
+
   const fontSizeOverrideRef = useRef<number | undefined>(props.fontSize)
   fontSizeOverrideRef.current = props.fontSize
 
@@ -496,9 +468,9 @@ export function TerminalView(props: TerminalViewProps) {
     return rendered.dataUrl
   }, [])
 
-  /* ---------------------------------------------------------------- */
-  /* Terminal instance                                                 */
-  /* ---------------------------------------------------------------- */
+
+
+
   useLayoutEffect(() => {
     const host = hostRef.current
     if (!host) return
@@ -523,7 +495,7 @@ export function TerminalView(props: TerminalViewProps) {
     try {
       terminal.unicode.activeVersion = '11'
     } catch {
-      // Older xterm builds may not expose the unicode registry.
+
     }
     terminal.loadAddon(
       new WebLinksAddon((event, uri) => {
@@ -546,10 +518,10 @@ export function TerminalView(props: TerminalViewProps) {
     try {
       terminal.textarea?.setAttribute('aria-label', callbacksRef.current.t('title'))
     } catch {
-      // textarea is optional (screen-reader mode may replace it)
+
     }
 
-    // Search result counts feed the search bar.
+
     const searchSubscription = searchAddon.onDidChangeResults((event) => {
       setSearchCount({
         current: event.resultIndex >= 0 ? event.resultIndex + 1 : 0,
@@ -560,9 +532,9 @@ export function TerminalView(props: TerminalViewProps) {
     let disposed = false
     const inputQueue = inputQueueRef.current
 
-    // Serialise user input: xterm emits one `onData` per keystroke and fetch
-    // requests carry no ordering guarantee, so sends are queued and flushed one
-    // at a time (<=32KB per POST).
+
+
+
     const flushInput = (): void => {
       if (disposed || inputQueue.busy || inputQueue.pending === '') return
       const [chunk, rest] = splitByUtf8Bytes(inputQueue.pending, INPUT_CHUNK_BYTES)
@@ -605,8 +577,8 @@ export function TerminalView(props: TerminalViewProps) {
       callbacksRef.current.onSelectionChange?.(next)
     })
 
-    // Keyboard: Ctrl/Cmd+F searches; Ctrl/Cmd+Shift+C/V copy/paste; everything
-    // else is forwarded to the PTY (including Ctrl+C = SIGINT).
+
+
     terminal.attachCustomKeyEventHandler((event) => {
       if (event.type !== 'keydown') return true
       const primary = event.ctrlKey || event.metaKey
@@ -630,7 +602,7 @@ export function TerminalView(props: TerminalViewProps) {
       return true
     })
 
-    // Ports printed by dev servers: clickable even without a scheme.
+
     const portProvider: ILinkProvider = {
       provideLinks: (y, callback) => {
         const buffer = terminal.buffer.active
@@ -646,7 +618,7 @@ export function TerminalView(props: TerminalViewProps) {
         while ((match = pattern.exec(text)) !== null) {
           const raw = match[0]
           if (raw === '') continue
-          // WebLinksAddon already links full http(s) URLs; skip their host part.
+
           if (/(?:https?:\/\/)$/u.test(text.slice(0, match.index))) continue
           const start = match.index + 1
           const end = start + raw.length
@@ -674,7 +646,7 @@ export function TerminalView(props: TerminalViewProps) {
       window.clearTimeout(resizeTimer)
       resizeTimer = window.setTimeout(() => {
         void resizeSession(sessionId, cols, rows).catch(() => {
-          // Reset the marker so the next fit retries the same dimensions.
+
           postedSizeRef.current = { cols: 0, rows: 0 }
         })
       }, RESIZE_DEBOUNCE_MS)
@@ -709,8 +681,8 @@ export function TerminalView(props: TerminalViewProps) {
       const current = terminalRef.current
       if (!current) return
       const next = readTerminalTheme()
-      // Avoid an unconditional theme assignment: xterm treats a new theme
-      // object as a full repaint even when every token is unchanged.
+
+
       if (!sameTheme(current.options.theme, next.xterm)) {
         current.options.theme = next.xterm
       }
@@ -771,11 +743,11 @@ export function TerminalView(props: TerminalViewProps) {
       fitRef.current = null
       searchRef.current = null
     }
-    // The terminal instance is re-created only when the session identity changes.
+
   }, [sessionId])
 
-  // Font-size preference changes apply live; the fit addon then recomputes the
-  // PTY grid and POSTs the new dimensions.
+
+
   useEffect(() => {
     const terminal = terminalRef.current
     if (!terminal) return
@@ -785,16 +757,16 @@ export function TerminalView(props: TerminalViewProps) {
     scheduleFitRef.current()
   }, [props.fontSize])
 
-  /* ---------------------------------------------------------------- */
-  /* Session stream                                                    */
-  /* ---------------------------------------------------------------- */
+
+
+
   useEffect(() => {
     const terminal = terminalRef.current
     if (!terminal) return
     let disposed = false
     let gotSnapshot = false
-    // A reconnect keeps the last screen visible: only the very first frame
-    // shows the opaque connecting skeleton.
+
+
     const hadScreen = readyRef.current
     readyRef.current = false
     pendingRef.current = []
@@ -918,8 +890,8 @@ export function TerminalView(props: TerminalViewProps) {
       },
     })
 
-    // The SSE route should emit a snapshot immediately; if it does not (or the
-    // route is not implemented yet), seed the screen over REST.
+
+
     snapshotTimer = window.setTimeout(() => {
       if (disposed || gotSnapshot) return
       void fetchSnapshot(sessionId)
@@ -933,9 +905,9 @@ export function TerminalView(props: TerminalViewProps) {
         })
     }, SNAPSHOT_FALLBACK_MS)
 
-    // Never keep the screen blank forever: after the grace period render the
-    // buffered deltas even without a snapshot (partial reflow is better than an
-    // empty terminal while the host half is being wired up).
+
+
+
     forceTimer = window.setTimeout(() => {
       if (disposed) return
       markReady()
@@ -947,20 +919,20 @@ export function TerminalView(props: TerminalViewProps) {
       window.clearTimeout(forceTimer)
       unsubscribe()
     }
-    // `props.clientId`/`props.t` identity changes must not resubscribe.
+
   }, [sessionId, reconnectToken, props.clientId])
 
-  /* ---------------------------------------------------------------- */
-  /* Local interactions                                                */
-  /* ---------------------------------------------------------------- */
+
+
+
   useEffect(() => {
     if (contextMenu === null) return
     const close = (): void => setContextMenu(null)
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') close()
     }
-    // Bubble phase: the portal's own pointerdown handler stops the event before
-    // it reaches window, so clicking a menu item does not close the menu first.
+
+
     window.addEventListener('pointerdown', close)
     window.addEventListener('keydown', onKeyDown)
     return () => {
@@ -1006,6 +978,7 @@ export function TerminalView(props: TerminalViewProps) {
             >
               {props.t('copySelection')}
             </button>
+
             <button
               type="button"
               role="menuitem"
@@ -1017,6 +990,7 @@ export function TerminalView(props: TerminalViewProps) {
             >
               {props.t('paste')}
             </button>
+
             <button
               type="button"
               role="menuitem"
@@ -1028,6 +1002,7 @@ export function TerminalView(props: TerminalViewProps) {
             >
               {props.t('selectAll')}
             </button>
+
             <button
               type="button"
               role="menuitem"
@@ -1039,6 +1014,7 @@ export function TerminalView(props: TerminalViewProps) {
             >
               {props.t('search')}
             </button>
+
             <button
               type="button"
               role="menuitem"
@@ -1050,7 +1026,9 @@ export function TerminalView(props: TerminalViewProps) {
             >
               {props.t('clearScreen')}
             </button>
+
           </div>,
+
           document.body,
         )
       : null
@@ -1072,7 +1050,9 @@ export function TerminalView(props: TerminalViewProps) {
         <div className="dshtp-connecting" role="status" aria-live="polite">
           <span className="dshtp-connecting-spinner" aria-hidden="true" />
           <span className="dshtp-connecting-text">{props.t('connectingShell')}</span>
+
         </div>
+
       ) : null}
 
       {searchOpen ? (
@@ -1110,6 +1090,7 @@ export function TerminalView(props: TerminalViewProps) {
                     total: String(searchCount.total),
                   })}
           </span>
+
           <button
             type="button"
             className="dshtp-search-action"
@@ -1118,7 +1099,9 @@ export function TerminalView(props: TerminalViewProps) {
             onClick={() => submitSearch('next')}
           >
             <span aria-hidden="true">{'\u2193'}</span>
+
           </button>
+
           <button
             type="button"
             className="dshtp-search-action"
@@ -1127,7 +1110,9 @@ export function TerminalView(props: TerminalViewProps) {
             onClick={() => submitSearch('previous')}
           >
             <span aria-hidden="true">{'\u2191'}</span>
+
           </button>
+
           <button
             type="button"
             className="dshtp-search-action dshtp-search-close"
@@ -1136,11 +1121,15 @@ export function TerminalView(props: TerminalViewProps) {
             onClick={closeSearch}
           >
             <span aria-hidden="true">{'\u00d7'}</span>
+
           </button>
+
         </div>
+
       ) : null}
 
       {contextMenuElement}
     </div>
+
   )
 }
