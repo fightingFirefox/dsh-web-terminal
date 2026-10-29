@@ -131,7 +131,6 @@ export interface PublicConfig {
   autoOpenIncludeInteractive: boolean
   autoOpenReopenAfterClose: boolean
   exposeTools: 'none' | 'core' | 'full'
-  singleCommandTab: boolean
   sshProfiles: Array<{ name: string; host: string; user?: string; port?: number; identityFile?: string }>
   [key: string]: unknown
 }
@@ -607,8 +606,7 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
       autoOpenReopenAfterClose: bool('autoOpenReopenAfterClose', true),
       exposeTools:
         config.exposeTools === 'core' || config.exposeTools === 'full' ? config.exposeTools : 'none',
-      singleCommandTab: bool('singleCommandTab', true),
-      sshProfiles: Array.isArray(config.sshProfiles)
+          sshProfiles: Array.isArray(config.sshProfiles)
         ? (config.sshProfiles as unknown[])
             .map((item) => {
               const profile = asRecord(item)
