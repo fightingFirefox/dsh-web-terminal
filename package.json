@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-terminal",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Visible terminal panel for the DeepSeek Harness web GUI: one persistent PTY per conversation with a real prompt, echo and exit codes; Claude-styled themes; optional live_terminal_* tools.",
   "type": "module",
   "license": "MIT",
