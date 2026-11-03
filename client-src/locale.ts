@@ -335,6 +335,8 @@ export const en: LocaleTable = {
   'settings.ports.title': 'Port detection',
   'settings.ports.hint': 'Turn loopback addresses in the output into clickable links.',
   'settings.foot.ready': 'Changes apply immediately and are stored in the profile cordis.patch.yml.',
+  'settings.foot.store': 'The official form is unavailable; using the plugin settings store. Changes apply immediately, a few fields on next start.',
+  'settings.foot.storeError': 'Could not read settings: {message}',
   'settings.foot.loading': 'Loading configuration…',
   'settings.unavailable': 'Config form unavailable (the host does not expose this namespace).',
 }

@@ -1,6 +1,8 @@
 // dsh-web-terminal panel body: session strip, terminal screen, menus, history and dialogs.
 
 import { createPortal } from 'react-dom'
+
+import { consumeLastCommand, onCommandFocus } from './bus'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   KeyboardEvent as ReactKeyboardEvent,
@@ -400,6 +402,22 @@ export function Panel(props: PanelProps) {
     )
   }, [conversationSessionId, onlyThisSession, sessions])
   const [unread, setUnread] = useState<Set<string>>(() => new Set())
+
+  useEffect(() => {
+    const apply = (focus: { terminalId: string } | null): void => {
+      if (focus === null) return
+      setSelectedId(focus.terminalId)
+      setView({ mode: 'terminal' })
+      setUnread((previous) => {
+        if (!previous.has(focus.terminalId)) return previous
+        const next = new Set(previous)
+        next.delete(focus.terminalId)
+        return next
+      })
+    }
+    apply(consumeLastCommand())
+    return onCommandFocus(apply)
+  }, [])
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialog, setDialog] = useState<DialogKind>(null)
   const [renameTarget, setRenameTarget] = useState<SessionInfo | null>(null)

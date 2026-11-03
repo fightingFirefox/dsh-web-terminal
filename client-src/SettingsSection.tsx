@@ -1,6 +1,8 @@
 // Settings section for dsh-web-terminal (registered into the official settings shell).
 
-import { useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+
+import { fetchPluginSettings, savePluginSetting, type PluginSettingsPayload } from './api'
 
 interface FormSnapshot {
   status: 'loading' | 'ready' | 'unavailable'
@@ -74,18 +76,52 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
     (listener) => form.subscribe(listener),
     () => form.getSnapshot(),
   )
-  if (props.form === undefined) {
-    return <div className="dshtp-settings">{t('settings.unavailable')}</div>
-  }
-  const value = (snapshot.value ?? {}) as Record<string, unknown>
-  const disabled = !snapshot.writable || snapshot.status !== 'ready'
+  const officialReady = props.form !== undefined && snapshot.status === 'ready' && snapshot.writable
+  const [store, setStore] = useState<PluginSettingsPayload | null>(null)
+  const [storeError, setStoreError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (officialReady) return
+    let cancelled = false
+    fetchPluginSettings()
+      .then((payload) => {
+        if (cancelled) return
+        setStore(payload)
+        setStoreError(null)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return
+        setStoreError(error instanceof Error ? error.message : String(error))
+      })
+    return () => { cancelled = true }
+  }, [officialReady])
+
+  const value = officialReady ? (snapshot.value ?? {}) : (store?.values ?? {})
+  const usable = officialReady || store !== null
+  const disabled = !usable
   const bool = (key: string, fallback: boolean): boolean =>
     typeof value[key] === 'boolean' ? value[key] as boolean : fallback
   const num = (key: string, fallback: number): number =>
     typeof value[key] === 'number' ? value[key] as number : fallback
   const policy = typeof value.autoOpenPolicy === 'string' ? value.autoOpenPolicy : 'all'
   const toolMode = typeof value.exposeTools === 'string' ? value.exposeTools : 'none'
-  const write = (field: string, next: unknown): void => { void form.set(field, next) }
+  const write = (field: string, next: unknown): void => {
+    if (officialReady) {
+      void form.set(field, next)
+      return
+    }
+    void savePluginSetting(field, next)
+      .then((payload) => { setStore(payload); setStoreError(null) })
+      .catch((error: unknown) => { setStoreError(error instanceof Error ? error.message : String(error)) })
+  }
+
+  const footer = officialReady
+    ? t('settings.foot.ready')
+    : storeError !== null
+      ? t('settings.foot.storeError', { message: storeError })
+      : store !== null
+        ? t('settings.foot.store')
+        : t('settings.foot.loading')
 
   return (
     <div className="dshtp-settings">
@@ -191,9 +227,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
         </Row>
       </div>
 
-      <div className="dshtp-settings-foot">
-        {snapshot.status === 'ready' ? t('settings.foot.ready') : t('settings.foot.loading')}
-      </div>
+      <div className="dshtp-settings-foot">{footer}</div>
     </div>
   )
 }

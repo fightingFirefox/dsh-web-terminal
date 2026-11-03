@@ -167,6 +167,13 @@ export interface CommandFinishedNotice {
   keepOpen: boolean
 }
 
+export interface CommandStartNotice {
+  type: 'command-start'
+  terminalId: string
+  sessionId?: string
+  title?: string
+}
+
 export interface PortNotice {
   type: 'port'
   terminalId: string
@@ -184,6 +191,7 @@ export interface CaptureRequestNotice {
 export type Notice =
   | AutoCloseNotice
   | CommandFinishedNotice
+  | CommandStartNotice
   | PortNotice
   | CaptureRequestNotice
 
@@ -482,6 +490,17 @@ export function parseNotice(value: unknown): Notice | null {
   if (!record) return null
   const type = readString(record.type)
   const terminalId = readString(record.terminalId) ?? readString(record.id)
+  if (type === 'command-start') {
+    if (terminalId === undefined || terminalId === '') return null
+    const sessionId = readString(record.sessionId)
+    const title = readString(record.title)
+    return {
+      type,
+      terminalId,
+      ...(sessionId === undefined ? {} : { sessionId }),
+      ...(title === undefined ? {} : { title }),
+    }
+  }
   if (type === 'command-finished') {
     if (terminalId === undefined || terminalId === '') return null
     return {

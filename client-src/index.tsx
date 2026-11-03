@@ -5,6 +5,7 @@ import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 
 import { fetchConfig, listSessions, openSessionsStream } from './api'
+import { announceCommandStart } from './bus'
 import { en, zh } from './locale'
 import { Panel } from './Panel'
 import { SettingsSection } from './SettingsSection'
@@ -202,6 +203,27 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
       }
     }
 
+    const openForCommand = (terminalId: string, sessionId: string | undefined, attempt: number, title: string): void => {
+      if (disposed) return
+      const policy = configRef.current?.config.autoOpenPolicy ?? 'all'
+      if (policy === 'off') return
+      const reopen = configRef.current?.config.autoOpenReopenAfterClose ?? true
+      if (!reopen && manualClosedRef.current.has(terminalId)) return
+      let opened = false
+      try {
+        opened = openPanel?.() === true
+      } catch (error) {
+        console.warn('[dsh-web-terminal] command open skipped', error)
+      }
+      if (opened) {
+        announceCommandStart(terminalId, sessionId)
+        return
+      }
+      if (attempt < 2) {
+        window.setTimeout(() => openForCommand(terminalId, sessionId, attempt + 1, title), 400 * (attempt + 1))
+      }
+    }
+
     const start = async (): Promise<void> => {
       try {
         configRef.current = await fetchConfig()
@@ -243,7 +265,10 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         onSessions: inspect,
         onNotice: (notice) => {
           if (disposed) return
-
+          if (notice.type === 'command-start') {
+            openForCommand(notice.terminalId, notice.sessionId, 0, notice.title ?? '')
+            return
+          }
           if (isPanelMounted()) return
           const failure = describeFailure(tRef.current, notice)
           if (failure !== null) pushToast(failure)

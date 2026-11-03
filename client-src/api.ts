@@ -527,3 +527,24 @@ export function openSessionsStream(handlers: SessionsStreamHandlers): () => void
 }
 
 export type { ConfigInfo, HistoryEntry, Notice }
+
+export interface PluginSettingsPayload {
+  fields: Record<string, 'boolean' | 'number' | 'string'>
+  values: Record<string, unknown>
+}
+
+function parsePluginSettings(value: unknown): PluginSettingsPayload {
+  const record = asRecord(value)
+  const fields = record ? asRecord(record.fields) : null
+  const values = record ? asRecord(record.values) : null
+  if (!fields || !values) throw new ApiError('settings returned an invalid payload', 500)
+  return { fields: fields as Record<string, 'boolean' | 'number' | 'string'>, values }
+}
+
+export async function fetchPluginSettings(): Promise<PluginSettingsPayload> {
+  return parsePluginSettings(await requestJson('/settings'))
+}
+
+export async function savePluginSetting(key: string, value: unknown): Promise<PluginSettingsPayload> {
+  return parsePluginSettings(await postJson('/settings', { key, value }))
+}
