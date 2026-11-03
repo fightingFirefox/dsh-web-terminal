@@ -174,6 +174,17 @@ export interface CommandStartNotice {
   title?: string
 }
 
+export interface FileChangedNotice {
+  type: 'file-changed'
+  sessionId: string
+  path: string
+  address: string
+  line: number
+  added?: number
+  removed?: number
+  title?: string
+}
+
 export interface PortNotice {
   type: 'port'
   terminalId: string
@@ -192,6 +203,7 @@ export type Notice =
   | AutoCloseNotice
   | CommandFinishedNotice
   | CommandStartNotice
+  | FileChangedNotice
   | PortNotice
   | CaptureRequestNotice
 
@@ -490,6 +502,22 @@ export function parseNotice(value: unknown): Notice | null {
   if (!record) return null
   const type = readString(record.type)
   const terminalId = readString(record.terminalId) ?? readString(record.id)
+  if (type === 'file-changed') {
+    const sessionId = readString(record.sessionId)
+    const path = readString(record.path)
+    const address = readString(record.address)
+    if (sessionId === undefined || path === undefined || address === undefined) return null
+    return {
+      type,
+      sessionId,
+      path,
+      address,
+      line: readNumber(record.line) ?? 1,
+      ...(readNumber(record.added) === undefined ? {} : { added: readNumber(record.added) as number }),
+      ...(readNumber(record.removed) === undefined ? {} : { removed: readNumber(record.removed) as number }),
+      ...(readString(record.title) === undefined ? {} : { title: readString(record.title) as string }),
+    }
+  }
   if (type === 'command-start') {
     if (terminalId === undefined || terminalId === '') return null
     const sessionId = readString(record.sessionId)
@@ -646,6 +674,7 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
         config.autoOpenPolicy === 'intercepted' || config.autoOpenPolicy === 'off'
           ? config.autoOpenPolicy
           : 'all',
+      editFollow: bool('editFollow', true),
       autoOpenIncludeInteractive: bool('autoOpenIncludeInteractive', true),
       autoOpenReopenAfterClose: bool('autoOpenReopenAfterClose', true),
       exposeTools:

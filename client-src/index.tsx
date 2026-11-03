@@ -10,9 +10,9 @@ import { en, zh } from './locale'
 import { Panel } from './Panel'
 import { SettingsSection } from './SettingsSection'
 import { styles } from './styles'
-import type { ConfigInfo, Notice, SessionInfo } from './types'
+import type { ConfigInfo, FileChangedNotice, Notice, SessionInfo } from './types'
 
-export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs', 'configForms']
+export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs', 'configForms', 'uiSession']
 
 const NAMESPACE = 'dshTerminalPanel'
 const PLUGIN_ID = 'dsh-web-terminal'
@@ -56,9 +56,11 @@ interface OpenTabsStore {
 
 interface SidebarRightService {
   openTab(kind: string, options?: Record<string, unknown>): void
+  openResource?(address: string, options?: unknown): void
   isExpanded?(): boolean
   active?(): OpenTabRecord | undefined
   openTabs?: OpenTabsStore
+  mounted?: { getSnapshot?(): string | undefined }
 }
 
 interface ClientContext {
@@ -68,6 +70,7 @@ interface ClientContext {
   slots: SlotsService
   sidebarRight?: SidebarRightService
   sidebarRightTabs: SidebarRightTabsService
+  uiSession?: { adapter?: { current?: { getSnapshot?(): { key?: string } } } }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -121,6 +124,7 @@ interface GlobalNoticeProps {
   openPanel?: () => boolean
   sendCommand?: (command: string) => void
   openTabs?: OpenTabsStore
+  openFollow?: (notice: FileChangedNotice) => void
 }
 
 function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
@@ -265,6 +269,11 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         onSessions: inspect,
         onNotice: (notice) => {
           if (disposed) return
+          if (notice.type === 'file-changed') {
+            if (configRef.current?.config.editFollow === false) return
+            props.openFollow?.(notice)
+            return
+          }
           if (notice.type === 'command-start') {
             openForCommand(notice.terminalId, notice.sessionId, 0, notice.title ?? '')
             return
@@ -490,6 +499,31 @@ export function apply(ctx: ClientContext): void {
   }
 
 
+  const followEdit = (notice: FileChangedNotice): void => {
+    const sidebar = ctx.sidebarRight
+    const openResource = sidebar?.openResource
+    if (sidebar === undefined || openResource === undefined) return
+    let current: string | undefined
+    try { current = ctx.uiSession?.adapter?.current?.getSnapshot?.().key } catch { current = undefined }
+    if (current === undefined) {
+      try { current = sidebar.mounted?.getSnapshot?.() } catch { current = undefined }
+    }
+    if (current === undefined || current !== notice.sessionId) return
+    const options = { params: { line: notice.line }, revealIfOpened: true } as never
+    const run = (): boolean => {
+      try {
+        openResource.call(sidebar, notice.address, options)
+        return true
+      } catch (error) {
+        console.warn('[dsh-web-terminal] follow open failed', error)
+        return false
+      }
+    }
+    if (run()) return
+    if (!openPanel()) return
+    globalThis.setTimeout(() => { run() }, 500)
+  }
+
   const sendCommand = (command: string): void => {
     if (isPanelMounted()) {
       dispatchCommand(command)
@@ -649,7 +683,7 @@ export function apply(ctx: ClientContext): void {
             id: `${PLUGIN_ID}.global-notice`,
             order: 900,
             locale: NAMESPACE,
-            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs }),
+            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs, openFollow: followEdit }),
           },
           GlobalNotice as unknown as LooseFunction,
         )

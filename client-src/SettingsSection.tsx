@@ -190,6 +190,14 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
             onChange={(next) => { write('interceptShellTools', next) }}
           />
         </Row>
+        <Row title={t('settings.follow.title')} hint={t('settings.follow.hint')}>
+          <Switch
+            label={t('settings.follow.title')}
+            checked={bool('editFollow', true)}
+            disabled={disabled}
+            onChange={(next) => { write('editFollow', next) }}
+          />
+        </Row>
         <Row title={t('settings.terminal.title')} hint={t('settings.terminal.hint')}>
           <span className="dshtp-settings-hint">{t('settings.terminal.value')}</span>
         </Row>
