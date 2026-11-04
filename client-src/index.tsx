@@ -46,7 +46,9 @@ interface SidebarRightTabsService {
 
 interface OpenTabRecord {
   id?: string
+  tabId?: string
   kind?: string
+  sessionId?: string
 }
 
 interface OpenTabsStore {
@@ -56,6 +58,7 @@ interface OpenTabsStore {
 
 interface SidebarRightService {
   openTab(kind: string, options?: Record<string, unknown>): void
+  close?(tabId: string): void
   openResource?(address: string, options?: unknown): void
   isExpanded?(): boolean
   active?(): OpenTabRecord | undefined
@@ -124,7 +127,8 @@ interface GlobalNoticeProps {
   openPanel?: () => boolean
   sendCommand?: (command: string) => void
   openTabs?: OpenTabsStore
-  openFollow?: (notice: FileChangedNotice) => void
+  openFollow?: (notice: FileChangedNotice) => boolean
+  currentSession?: () => string | undefined
 }
 
 function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
@@ -271,10 +275,22 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
           if (disposed) return
           if (notice.type === 'file-changed') {
             if (configRef.current?.config.editFollow === false) return
-            props.openFollow?.(notice)
+            const opened = props.openFollow?.(notice) === true
+            if (opened) {
+              const delta = notice.added === undefined || notice.removed === undefined
+                ? ''
+                : ' · +' + notice.added + ' / -' + notice.removed
+              pushToast({
+                title: '跟随 ' + (notice.title ?? notice.path.split(/[\\/]/u).pop() ?? notice.path),
+                body: '第 ' + notice.line + ' 行' + delta,
+                actions: [],
+              })
+            }
             return
           }
           if (notice.type === 'command-start') {
+            const current = props.currentSession?.()
+            if (current !== undefined && notice.sessionId !== undefined && notice.sessionId !== current) return
             openForCommand(notice.terminalId, notice.sessionId, 0, notice.title ?? '')
             return
           }
@@ -487,10 +503,7 @@ export function apply(ctx: ClientContext): void {
     const sidebar = ctx.sidebarRight
     if (sidebar === undefined) return false
     try {
-      const expanded = sidebar.isExpanded?.() === true
-      const records = sidebar.openTabs?.getSnapshot?.() ?? []
-      const hasTab = records.some((record) => record.kind === TAB_KIND)
-      if (!(hasTab && expanded)) sidebar.openTab(TAB_KIND, { revealIfOpened: true })
+      sidebar.openTab(TAB_KIND, { revealIfOpened: true })
       return true
     } catch (error) {
       console.warn('[dsh-web-terminal] openTab failed', error)
@@ -499,16 +512,19 @@ export function apply(ctx: ClientContext): void {
   }
 
 
-  const followEdit = (notice: FileChangedNotice): void => {
+  const currentSession = (): string | undefined => {
+    try { return ctx.uiSession?.adapter?.current?.getSnapshot?.().key } catch { return undefined }
+  }
+
+  const followEdit = (notice: FileChangedNotice): boolean => {
     const sidebar = ctx.sidebarRight
     const openResource = sidebar?.openResource
-    if (sidebar === undefined || openResource === undefined) return
-    let current: string | undefined
-    try { current = ctx.uiSession?.adapter?.current?.getSnapshot?.().key } catch { current = undefined }
+    if (sidebar === undefined || openResource === undefined) return false
+    let current = currentSession()
     if (current === undefined) {
       try { current = sidebar.mounted?.getSnapshot?.() } catch { current = undefined }
     }
-    if (current === undefined || current !== notice.sessionId) return
+    if (current === undefined || current !== notice.sessionId) return false
     const options = { params: { line: notice.line }, revealIfOpened: true } as never
     const run = (): boolean => {
       try {
@@ -519,9 +535,10 @@ export function apply(ctx: ClientContext): void {
         return false
       }
     }
-    if (run()) return
-    if (!openPanel()) return
+    if (run()) return true
+    if (!openPanel()) return false
     globalThis.setTimeout(() => { run() }, 500)
+    return true
   }
 
   const sendCommand = (command: string): void => {
@@ -570,7 +587,6 @@ export function apply(ctx: ClientContext): void {
       ctx.sidebarRightTabs.register({
         id: PLUGIN_ID,
         kind: TAB_KIND,
-        multiple: true,
         priority: 'extension',
         title: () => t('title'),
         guide: [
@@ -585,6 +601,37 @@ export function apply(ctx: ClientContext): void {
       }),
     'dsh-web-terminal: tab type',
   )
+
+  // One panel per conversation: older builds registered this kind as multiple,
+  // so keep the first tab of the on-screen session and close the rest.
+  const pruneDuplicateTabs = (): void => {
+    const sidebar = ctx.sidebarRight
+    if (sidebar === undefined) return
+    const records = sidebar.openTabs?.getSnapshot?.() ?? []
+    if (records.length === 0) return
+    const sessionId = currentSession() ?? sidebar.mounted?.getSnapshot?.()
+    if (sessionId === undefined) return
+    const mine = records.filter((record) => record.kind === TAB_KIND && String(record.sessionId) === String(sessionId))
+    for (const record of mine.slice(1)) {
+      const tabId = record.tabId ?? record.id
+      if (tabId === undefined) continue
+      try { sidebar.close?.(tabId) } catch {}
+    }
+  }
+
+  ctx.effect(() => {
+    const timers: number[] = []
+    for (const delay of [800, 2000, 5000, 10000, 20000]) {
+      timers.push(window.setTimeout(pruneDuplicateTabs, delay))
+    }
+    const unsubscribe = ctx.sidebarRight?.openTabs?.subscribe?.(() => {
+      globalThis.setTimeout(pruneDuplicateTabs, 50)
+    })
+    return () => {
+      for (const timer of timers) window.clearTimeout(timer)
+      unsubscribe?.()
+    }
+  }, 'dsh-web-terminal: prune duplicate tabs')
 
 
   ctx.effect(
@@ -607,7 +654,7 @@ export function apply(ctx: ClientContext): void {
               ? record.sessionId
               : undefined
           : undefined
-    return { sessionId: value }
+    return { sessionId: value, currentSession }
   },
           },
           Panel as unknown as LooseFunction,
@@ -683,7 +730,7 @@ export function apply(ctx: ClientContext): void {
             id: `${PLUGIN_ID}.global-notice`,
             order: 900,
             locale: NAMESPACE,
-            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs, openFollow: followEdit }),
+            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs, openFollow: followEdit, currentSession }),
           },
           GlobalNotice as unknown as LooseFunction,
         )

@@ -64,6 +64,8 @@ export interface PanelProps {
   sessionId?: string
 
   useTabInfo?: () => unknown
+
+  currentSession?: () => string | undefined
 }
 
 type ListPhase = 'loading' | 'ready' | 'error'
@@ -371,7 +373,8 @@ export function Panel(props: PanelProps) {
         : typeof props.sessionId === 'object' && props.sessionId !== null && typeof (props.sessionId as { id?: unknown }).id === 'string'
           ? (props.sessionId as { id: string }).id
           : undefined
-  const conversationSessionId = rawSessionId === '' ? undefined : rawSessionId
+  const fallbackSessionId = typeof props.currentSession === 'function' ? props.currentSession() : undefined
+  const conversationSessionId = rawSessionId === undefined ? fallbackSessionId : rawSessionId
   const clientId = getClientId()
 
   const [sessions, setSessions] = useState<SessionInfo[]>([])
@@ -396,7 +399,10 @@ export function Panel(props: PanelProps) {
     readStoredBoolean(GROUP_STORAGE_KEY, true),
   )
   const scopedSessions = useMemo(() => {
-    if (!onlyThisSession || conversationSessionId === undefined) return sessions
+    if (!onlyThisSession) return sessions
+    if (conversationSessionId === undefined) {
+      return sessions.filter((session) => session.sessionId === undefined)
+    }
     return sessions.filter(
       (session) => session.sessionId === undefined || session.sessionId === conversationSessionId,
     )
