@@ -59,6 +59,8 @@ interface OpenTabsStore {
 interface SidebarRightService {
   openTab(kind: string, options?: Record<string, unknown>): void
   close?(tabId: string): void
+  focus?(tabId: string): void
+  toggleExpanded?(): void
   openResource?(address: string, options?: unknown): void
   isExpanded?(): boolean
   active?(): OpenTabRecord | undefined
@@ -177,7 +179,6 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
       if (opened) {
         autoOpenedRef.current.add(key)
         lastAutoKeyRef.current = key
-        console.log('[dsh-web-terminal] auto-opened panel for a new agent command session', key)
         return
       }
       const delay = OPEN_RETRY_DELAYS[attempt]
@@ -499,10 +500,32 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NAMESPACE)
 
 
+  const findOwnTab = (): string | undefined => {
+    const sidebar = ctx.sidebarRight
+    const records = sidebar?.openTabs?.getSnapshot?.() ?? []
+    if (records.length === 0) return undefined
+    const current = currentSession() ?? sidebar?.mounted?.getSnapshot?.()
+    const mine = records.filter((record) =>
+      record.kind === TAB_KIND &&
+      (current === undefined || String(record.sessionId) === String(current)))
+    const first = mine[0]
+    return first?.tabId ?? first?.id
+  }
+
+  // Reveal by tab id: page tabs dedupe by contentId, and tabs minted by older
+  // builds carry a per-open contentId, so openTab would never match them.
   const openPanel = (): boolean => {
     const sidebar = ctx.sidebarRight
     if (sidebar === undefined) return false
     try {
+      const existing = findOwnTab()
+      if (existing !== undefined && typeof sidebar.focus === 'function') {
+        if (typeof sidebar.isExpanded === 'function' && !sidebar.isExpanded()) {
+          sidebar.toggleExpanded?.()
+        }
+        sidebar.focus(existing)
+        return true
+      }
       sidebar.openTab(TAB_KIND, { revealIfOpened: true })
       return true
     } catch (error) {
