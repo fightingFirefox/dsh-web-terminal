@@ -199,6 +199,7 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
       if (policy === 'off') return
       const includeInteractive = configRef.current?.config.autoOpenIncludeInteractive ?? true
       const reopen = configRef.current?.config.autoOpenReopenAfterClose ?? true
+      const viewing = props.currentSession?.()
       for (const session of incoming) {
         if (known.has(session.id)) continue
         known.add(session.id)
@@ -206,9 +207,13 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         const commandLike = session.kind === 'command'
         const allowed = policy === 'intercepted' ? commandLike : commandLike || (includeInteractive && session.kind === 'interactive')
         if (!allowed) continue
+        // Tools such as live_terminal_run create a terminal session without a
+        // command-start notice; follow the new session anyway.
+        if (viewing !== undefined && session.sessionId !== undefined && session.sessionId !== viewing) continue
         const sessionKey = session.sessionId ?? '__page__'
         if (!reopen && (autoOpenedRef.current.has(sessionKey) || manualClosedRef.current.has(sessionKey))) continue
         attemptOpen(session.id ?? sessionKey, 0)
+        announceCommandStart(session.id ?? sessionKey, session.sessionId)
       }
     }
 
