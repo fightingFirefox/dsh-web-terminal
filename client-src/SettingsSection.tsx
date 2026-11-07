@@ -105,6 +105,7 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
     typeof value[key] === 'number' ? value[key] as number : fallback
   const policy = typeof value.autoOpenPolicy === 'string' ? value.autoOpenPolicy : 'all'
   const toolMode = typeof value.exposeTools === 'string' ? value.exposeTools : 'none'
+  const followMode = value.followMode === 'tab' ? 'tab' : 'list'
   const write = (field: string, next: unknown): void => {
     if (officialReady) {
       void form.set(field, next)
@@ -197,6 +198,27 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
             disabled={disabled}
             onChange={(next) => { write('editFollow', next) }}
           />
+        </Row>
+        <Row title={t('settings.followMode.title')} hint={t('settings.followMode.hint')}>
+          <div className="dshtp-settings-segments" role="radiogroup" aria-label={t('settings.followMode.title')}>
+            {[
+              { id: 'list', key: 'settings.followMode.list' },
+              { id: 'tab', key: 'settings.followMode.tab' },
+            ].map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={followMode === option.id}
+                className="dshtp-settings-segment"
+                data-active={followMode === option.id}
+                disabled={disabled}
+                onClick={() => { write('followMode', option.id) }}
+              >
+                {t(option.key)}
+              </button>
+            ))}
+          </div>
         </Row>
         <Row title={t('settings.terminal.title')} hint={t('settings.terminal.hint')}>
           <span className="dshtp-settings-hint">{t('settings.terminal.value')}</span>

@@ -183,6 +183,8 @@ export interface FileChangedNotice {
   added?: number
   removed?: number
   title?: string
+  size?: number
+  preview?: string
 }
 
 export interface PortNotice {
@@ -516,6 +518,8 @@ export function parseNotice(value: unknown): Notice | null {
       ...(readNumber(record.added) === undefined ? {} : { added: readNumber(record.added) as number }),
       ...(readNumber(record.removed) === undefined ? {} : { removed: readNumber(record.removed) as number }),
       ...(readString(record.title) === undefined ? {} : { title: readString(record.title) as string }),
+      ...(readNumber(record.size) === undefined ? {} : { size: readNumber(record.size) as number }),
+      ...(readString(record.preview) === undefined ? {} : { preview: readString(record.preview) as string }),
     }
   }
   if (type === 'command-start') {
@@ -675,6 +679,8 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
           ? config.autoOpenPolicy
           : 'all',
       editFollow: bool('editFollow', true),
+      followMode: config.followMode === 'tab' ? 'tab' : 'list',
+      followTabLimit: number('followTabLimit', 3),
       autoOpenIncludeInteractive: bool('autoOpenIncludeInteractive', true),
       autoOpenReopenAfterClose: bool('autoOpenReopenAfterClose', true),
       exposeTools:

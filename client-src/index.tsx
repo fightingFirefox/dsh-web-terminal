@@ -7,7 +7,9 @@ import xtermCss from '@xterm/xterm/css/xterm.css'
 import { fetchConfig, listSessions, openSessionsStream } from './api'
 import { announceCommandStart } from './bus'
 import { en, zh } from './locale'
+import { FilesPanel } from './FilesPanel'
 import { Panel } from './Panel'
+import { getFollowTabLimit, recordFollowedFile, setFollowTabLimit } from './follow-store'
 import { SettingsSection } from './SettingsSection'
 import { styles } from './styles'
 import type { ConfigInfo, FileChangedNotice, Notice, SessionInfo } from './types'
@@ -17,6 +19,7 @@ export const inject = ['slots', 'locale', 'sidebarRight', 'sidebarRightTabs', 'c
 const NAMESPACE = 'dshTerminalPanel'
 const PLUGIN_ID = 'dsh-web-terminal'
 const TAB_KIND = 'claude-terminal-panel'
+const FILES_TAB_KIND = 'claude-terminal-files'
 const STYLE_ATTRIBUTE = 'data-plugin'
 const COMMAND_EVENT = 'dsh-web-terminal:command'
 const WELCOME_STORAGE_KEY = 'dsh-web-terminal.welcome.v1'
@@ -49,6 +52,7 @@ interface OpenTabRecord {
   tabId?: string
   kind?: string
   sessionId?: string
+  contentId?: string
 }
 
 interface OpenTabsStore {
@@ -130,6 +134,7 @@ interface GlobalNoticeProps {
   sendCommand?: (command: string) => void
   openTabs?: OpenTabsStore
   openFollow?: (notice: FileChangedNotice) => boolean
+  openFilesPanel?: () => boolean
   currentSession?: () => string | undefined
 }
 
@@ -281,14 +286,19 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
           if (disposed) return
           if (notice.type === 'file-changed') {
             if (configRef.current?.config.editFollow === false) return
-            const opened = props.openFollow?.(notice) === true
+            recordFollowedFile(notice.sessionId, notice)
+            setFollowTabLimit(Number(configRef.current?.config.followTabLimit ?? 3) || 3)
+            const mode = configRef.current?.config.followMode ?? 'list'
+            const opened = mode === 'tab'
+              ? props.openFollow?.(notice) === true
+              : props.openFilesPanel?.() === true
             if (opened) {
               const delta = notice.added === undefined || notice.removed === undefined
                 ? ''
                 : ' · +' + notice.added + ' / -' + notice.removed
               pushToast({
                 title: '跟随 ' + (notice.title ?? notice.path.split(/[\\/]/u).pop() ?? notice.path),
-                body: '第 ' + notice.line + ' 行' + delta,
+                body: '第 ' + notice.line + ' 行' + delta + (mode === 'tab' ? '' : ' · 已加入文件列表'),
                 actions: [],
               })
             }
@@ -505,13 +515,13 @@ export function apply(ctx: ClientContext): void {
   const t = ctx.locale.bind(NAMESPACE)
 
 
-  const findOwnTab = (): string | undefined => {
+  const findOwnTab = (kind: string = TAB_KIND): string | undefined => {
     const sidebar = ctx.sidebarRight
     const records = sidebar?.openTabs?.getSnapshot?.() ?? []
     if (records.length === 0) return undefined
     const current = currentSession() ?? sidebar?.mounted?.getSnapshot?.()
     const mine = records.filter((record) =>
-      record.kind === TAB_KIND &&
+      record.kind === kind &&
       (current === undefined || String(record.sessionId) === String(current)))
     const first = mine[0]
     return first?.tabId ?? first?.id
@@ -544,6 +554,103 @@ export function apply(ctx: ClientContext): void {
     try { return ctx.uiSession?.adapter?.current?.getSnapshot?.().key } catch { return undefined }
   }
 
+  const focusTab = (tabId: string): boolean => {
+    const sidebar = ctx.sidebarRight
+    if (sidebar === undefined || typeof sidebar.focus !== 'function') return false
+    try {
+      if (typeof sidebar.isExpanded === 'function' && !sidebar.isExpanded()) sidebar.toggleExpanded?.()
+      sidebar.focus(tabId)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const openFilesPanel = (): boolean => {
+    const sidebar = ctx.sidebarRight
+    if (sidebar === undefined) return false
+    try {
+      const existing = findOwnTab(FILES_TAB_KIND)
+      if (existing !== undefined && focusTab(existing)) return true
+      sidebar.openTab(FILES_TAB_KIND, { revealIfOpened: true })
+      return true
+    } catch (error) {
+      console.warn('[dsh-web-terminal] files panel open failed', error)
+      return false
+    }
+  }
+
+  const encodeSegment = (value: string): string => encodeURIComponent(value).replace(/%3A/giu, ':')
+
+  const sessionTabs = (): OpenTabRecord[] => {
+    const records = ctx.sidebarRight?.openTabs?.getSnapshot?.() ?? []
+    const current = currentSession()
+    if (current === undefined) return records
+    return records.filter((record) => String(record.sessionId) === String(current))
+  }
+
+  const closeTab = (record: OpenTabRecord): boolean => {
+    const tabId = record.tabId ?? record.id
+    if (tabId === undefined) return false
+    try {
+      ctx.sidebarRight?.close?.(tabId)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const closeFileTabs = (): number => {
+    const current = currentSession()
+    let closed = 0
+    for (const record of sessionTabs()) {
+      const contentId = record.contentId ?? ''
+      if (record.kind !== 'text') continue
+      if (current !== undefined && !contentId.startsWith('dsh-resource://file/session/' + encodeSegment(current) + '/')) continue
+      if (closeTab(record)) closed += 1
+    }
+    return closed
+  }
+
+  const countSessionFileTabs = (sessionId: string): number => {
+    let count = 0
+    const prefix = 'dsh-resource://file/session/' + encodeSegment(sessionId) + '/'
+    for (const record of sessionTabs()) {
+      if (record.kind === 'text' && (record.contentId ?? '').startsWith(prefix)) count += 1
+    }
+    return count
+  }
+
+  const closeFileTab = (address: string): void => {
+    for (const record of sessionTabs()) {
+      if (record.kind === 'text' && record.contentId === address) {
+        closeTab(record)
+        return
+      }
+    }
+  }
+
+  const closeOtherTabs = (): number => {
+    let closed = 0
+    for (const record of sessionTabs()) {
+      if (record.kind === TAB_KIND || record.kind === FILES_TAB_KIND) continue
+      if (closeTab(record)) closed += 1
+    }
+    return closed
+  }
+
+  const openFileTab = (address: string, line: number): void => {
+    const sidebar = ctx.sidebarRight
+    if (sidebar?.openResource === undefined) return
+    if (!openPanel()) return
+    try {
+      sidebar.openResource(address, { params: { line }, revealIfOpened: true } as never)
+    } catch (error) {
+      console.warn('[dsh-web-terminal] file tab open failed', error)
+    }
+  }
+
+  // Keep the tab strip bounded: past the limit, fall back to the files panel.
   const followEdit = (notice: FileChangedNotice): boolean => {
     const sidebar = ctx.sidebarRight
     const openResource = sidebar?.openResource
@@ -553,6 +660,7 @@ export function apply(ctx: ClientContext): void {
       try { current = sidebar.mounted?.getSnapshot?.() } catch { current = undefined }
     }
     if (current === undefined || current !== notice.sessionId) return false
+    if (countSessionFileTabs(current) >= getFollowTabLimit()) return openFilesPanel()
     const options = { params: { line: notice.line }, revealIfOpened: true } as never
     const run = (): boolean => {
       try {
@@ -630,6 +738,17 @@ export function apply(ctx: ClientContext): void {
     'dsh-web-terminal: tab type',
   )
 
+  ctx.effect(
+    () =>
+      ctx.sidebarRightTabs.register({
+        id: `${PLUGIN_ID}.files`,
+        kind: FILES_TAB_KIND,
+        priority: 'extension',
+        title: () => t('filesTabTitle'),
+      }),
+    'dsh-web-terminal: files tab type',
+  )
+
   // One panel per conversation: older builds registered this kind as multiple,
   // so keep the first tab of the on-screen session and close the rest.
   const pruneDuplicateTabs = (): void => {
@@ -689,6 +808,30 @@ export function apply(ctx: ClientContext): void {
         ),
       ),
     'dsh-web-terminal: body',
+  )
+
+  ctx.effect(
+    () =>
+      ctx.slots.inject('sidebar.right.pane.tab', () =>
+        ctx.slots.register(
+          {
+            name: 'sidebar.right.pane.tab',
+            key: `${PLUGIN_ID}.files`,
+            locale: NAMESPACE,
+            inject: () => ({
+              t,
+              currentSession,
+              openFile: openFileTab,
+              closeFileTab,
+              closeFileTabs,
+              closeOtherTabs,
+              openTerminal: () => { openPanel() },
+            }),
+          },
+          FilesPanel as unknown as LooseFunction,
+        ),
+      ),
+    'dsh-web-terminal: files body',
   )
 
 
@@ -758,7 +901,7 @@ export function apply(ctx: ClientContext): void {
             id: `${PLUGIN_ID}.global-notice`,
             order: 900,
             locale: NAMESPACE,
-            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs, openFollow: followEdit, currentSession }),
+            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs, openFollow: followEdit, openFilesPanel, currentSession }),
           },
           GlobalNotice as unknown as LooseFunction,
         )
