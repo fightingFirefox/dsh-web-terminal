@@ -214,7 +214,7 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         if (!allowed) continue
         // Tools such as live_terminal_run create a terminal session without a
         // command-start notice; follow the new session anyway.
-        if (viewing !== undefined && session.sessionId !== undefined && session.sessionId !== viewing) continue
+        if (viewing !== undefined && session.sessionId !== viewing) continue
         const sessionKey = session.sessionId ?? '__page__'
         if (!reopen && (autoOpenedRef.current.has(sessionKey) || manualClosedRef.current.has(sessionKey))) continue
         attemptOpen(session.id ?? sessionKey, 0)
@@ -287,6 +287,10 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
           if (notice.type === 'file-changed') {
             if (configRef.current?.config.editFollow === false) return
             recordFollowedFile(notice.sessionId, notice)
+            // The files tab lives in the on-screen Session: never reveal it for
+            // an edit that happened in another conversation.
+            const viewing = props.currentSession?.()
+            if (viewing !== undefined && notice.sessionId !== viewing) return
             setFollowTabLimit(Number(configRef.current?.config.followTabLimit ?? 3) || 3)
             const mode = configRef.current?.config.followMode ?? 'list'
             const opened = mode === 'tab'
@@ -302,6 +306,16 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
                 actions: [],
               })
             }
+            return
+          }
+          if (notice.type === 'terminal-error') {
+            const current = props.currentSession?.()
+            if (current !== undefined && notice.sessionId !== undefined && notice.sessionId !== current) return
+            pushToast({
+              title: '\u7ec8\u7aef\u672a\u63a5\u7ba1',
+              body: notice.message.slice(0, 200),
+              actions: [],
+            })
             return
           }
           if (notice.type === 'command-start') {

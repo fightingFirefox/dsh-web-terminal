@@ -412,6 +412,7 @@ export function Panel(props: PanelProps) {
   useEffect(() => {
     const apply = (focus: { terminalId: string } | null): void => {
       if (focus === null) return
+      pendingFocusRef.current = focus.terminalId
       setSelectedId(focus.terminalId)
       setView({ mode: 'terminal' })
       setUnread((previous) => {
@@ -446,6 +447,10 @@ export function Panel(props: PanelProps) {
   const rootRef = useRef<HTMLElement | null>(null)
   const selectedIdRef = useRef<string | null>(null)
   selectedIdRef.current = selectedId
+  // A command-start can name a terminal the panel has not listed yet (host just
+  // restarted). Keep that focus until the session appears instead of snapping
+  // back to another terminal.
+  const pendingFocusRef = useRef<string | null>(null)
   const followRef = useRef(follow)
   followRef.current = follow
   const sessionsRef = useRef<SessionInfo[]>([])
@@ -641,6 +646,15 @@ export function Panel(props: PanelProps) {
       return
     }
     if (fresh.length === 0) return
+    const pending = pendingFocusRef.current
+    if (pending !== null) {
+      const target = fresh.find((session) => session.id === pending)
+      if (target !== undefined) {
+        pendingFocusRef.current = null
+        setSelectedId(target.id)
+        return
+      }
+    }
     if (followRef.current) {
       const preferred = pickPreferred(fresh)
       if (preferred && preferred.id !== selectedIdRef.current) setSelectedId(preferred.id)
@@ -660,7 +674,11 @@ export function Panel(props: PanelProps) {
       if (selectedId !== null) setSelectedId(null)
       return
     }
-    if (selectedId !== null && scopedSessions.some((session) => session.id === selectedId)) return
+    if (selectedId !== null && scopedSessions.some((session) => session.id === selectedId)) {
+      pendingFocusRef.current = null
+      return
+    }
+    if (pendingFocusRef.current !== null && pendingFocusRef.current === selectedId) return
     const preferred = pickPreferred(scopedSessions)
     setSelectedId(preferred ? preferred.id : null)
   }, [scopedSessions, selectedId])
@@ -853,9 +871,17 @@ export function Panel(props: PanelProps) {
         selectSession(terminalId)
         return
       }
-      void openHistory(terminalId)
+      pendingFocusRef.current = terminalId
+      setSelectedId(terminalId)
+      void loadSessions({ silent: true }).then(() => {
+        if (sessionsRef.current.some((session) => session.id === terminalId)) {
+          selectSession(terminalId)
+          return
+        }
+        void openHistory(terminalId)
+      })
     },
-    [openHistory, selectSession],
+    [loadSessions, openHistory, selectSession],
   )
 
   const handleNotice = useCallback(

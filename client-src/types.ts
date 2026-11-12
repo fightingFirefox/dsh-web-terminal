@@ -167,6 +167,12 @@ export interface CommandFinishedNotice {
   keepOpen: boolean
 }
 
+export interface TerminalErrorNotice {
+  type: 'terminal-error'
+  sessionId?: string
+  message: string
+}
+
 export interface CommandStartNotice {
   type: 'command-start'
   terminalId: string
@@ -206,6 +212,7 @@ export type Notice =
   | CommandFinishedNotice
   | CommandStartNotice
   | FileChangedNotice
+  | TerminalErrorNotice
   | PortNotice
   | CaptureRequestNotice
 
@@ -520,6 +527,16 @@ export function parseNotice(value: unknown): Notice | null {
       ...(readString(record.title) === undefined ? {} : { title: readString(record.title) as string }),
       ...(readNumber(record.size) === undefined ? {} : { size: readNumber(record.size) as number }),
       ...(readString(record.preview) === undefined ? {} : { preview: readString(record.preview) as string }),
+    }
+  }
+  if (type === 'terminal-error') {
+    const message = readString(record.message)
+    if (message === undefined || message === '') return null
+    const sessionId = readString(record.sessionId)
+    return {
+      type,
+      message,
+      ...(sessionId === undefined ? {} : { sessionId }),
     }
   }
   if (type === 'command-start') {
