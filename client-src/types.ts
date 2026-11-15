@@ -130,6 +130,12 @@ export interface PublicConfig {
   autoOpenPolicy: 'all' | 'intercepted' | 'off'
   autoOpenIncludeInteractive: boolean
   autoOpenReopenAfterClose: boolean
+  backgroundTerminals: boolean
+  maxBackgroundTerminals: number
+  keepFinishedBackground: number
+  maxShellsPerConversation: number
+  autoReturnOnLongFinish: boolean
+  autoReturnLongMs: number
   exposeTools: 'none' | 'core' | 'full'
   sshProfiles: Array<{ name: string; host: string; user?: string; port?: number; identityFile?: string }>
   [key: string]: unknown
@@ -167,6 +173,12 @@ export interface CommandFinishedNotice {
   keepOpen: boolean
 }
 
+export interface BackgroundCommandNotice {
+  type: 'background-command'
+  sessionId?: string
+  title?: string
+}
+
 export interface TerminalErrorNotice {
   type: 'terminal-error'
   sessionId?: string
@@ -178,6 +190,16 @@ export interface CommandStartNotice {
   terminalId: string
   sessionId?: string
   title?: string
+  background?: boolean
+}
+
+export interface CommandEndNotice {
+  type: 'command-end'
+  terminalId: string
+  sessionId?: string
+  background?: boolean
+  exitCode?: number | null
+  durationMs?: number
 }
 
 export interface FileChangedNotice {
@@ -211,8 +233,10 @@ export type Notice =
   | AutoCloseNotice
   | CommandFinishedNotice
   | CommandStartNotice
+  | CommandEndNotice
   | FileChangedNotice
   | TerminalErrorNotice
+  | BackgroundCommandNotice
   | PortNotice
   | CaptureRequestNotice
 
@@ -529,6 +553,15 @@ export function parseNotice(value: unknown): Notice | null {
       ...(readString(record.preview) === undefined ? {} : { preview: readString(record.preview) as string }),
     }
   }
+  if (type === 'background-command') {
+    const sessionId = readString(record.sessionId)
+    const title = readString(record.title)
+    return {
+      type,
+      ...(sessionId === undefined ? {} : { sessionId }),
+      ...(title === undefined ? {} : { title }),
+    }
+  }
   if (type === 'terminal-error') {
     const message = readString(record.message)
     if (message === undefined || message === '') return null
@@ -548,6 +581,21 @@ export function parseNotice(value: unknown): Notice | null {
       terminalId,
       ...(sessionId === undefined ? {} : { sessionId }),
       ...(title === undefined ? {} : { title }),
+      ...(record.background === true ? { background: true } : {}),
+    }
+  }
+  if (type === 'command-end') {
+    if (terminalId === undefined || terminalId === '') return null
+    const sessionId = readString(record.sessionId)
+    const durationMs = readNumber(record.durationMs)
+    const exitCode = readNumber(record.exitCode)
+    return {
+      type,
+      terminalId,
+      ...(sessionId === undefined ? {} : { sessionId }),
+      ...(record.background === true ? { background: true } : {}),
+      ...(durationMs === undefined ? {} : { durationMs }),
+      ...(exitCode === undefined ? {} : { exitCode }),
     }
   }
   if (type === 'command-finished') {
@@ -695,6 +743,12 @@ export function parseConfigInfo(value: unknown): ConfigInfo | null {
         config.autoOpenPolicy === 'intercepted' || config.autoOpenPolicy === 'off'
           ? config.autoOpenPolicy
           : 'all',
+      backgroundTerminals: bool('backgroundTerminals', true),
+      maxBackgroundTerminals: number('maxBackgroundTerminals', 2),
+      keepFinishedBackground: number('keepFinishedBackground', 2),
+      maxShellsPerConversation: number('maxShellsPerConversation', 2),
+      autoReturnOnLongFinish: bool('autoReturnOnLongFinish', true),
+      autoReturnLongMs: number('autoReturnLongMs', 8000),
       editFollow: bool('editFollow', true),
       followMode: config.followMode === 'tab' ? 'tab' : 'list',
       followTabLimit: number('followTabLimit', 3),

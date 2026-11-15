@@ -88,10 +88,13 @@ pwsh -NoProfile -File uninstall.ps1
 
 ## 行为说明
 
-- **拦截范围**：仅 agent 的前台 `pwsh`/`bash` 调用。带 `run_in_background`
-  或 `sandbox_permissions` 的调用不拦截，保持 DSH 原生语义。
-- **一个会话一个 shell**：同一对话复用同一个常驻 PTY；命令串行排队，不并发写同一个 shell。
-- **自动打开**：出现新的可见终端时自动打开右侧栏。
+- **拦截范围**：agent 的前台与后台 `pwsh`/`bash` 调用。后台命令由插件在独立终端里
+  执行，工具仍立即返回 `job id`（`job_output` / `job_kill` 对 `dsht-*` 由插件应答）。
+  带 `sandbox_permissions` 的调用不拦截，保持审批流。
+- **终端池**：每个会话常驻主终端，主终端被长命令占用时会启用第二个终端；
+  后台命令并发默认 2 个，空闲后复用，不按命令数无限增长。
+- **自动打开**：出现新的可见终端时自动打开右侧栏；长命令（默认 ≥8 秒）结束后
+  自动切回它所在的终端，其余终端保留在标签栏。
 - **常驻**：命令结束后终端保持打开并停在提示符上，没有自动关闭计时器；
   需要额外终端时用面板的 `+` 或 `live_terminal_open`。
 - **传输**：面板数据经宿主 HTTP/SSE 通道（前缀 `/dsh-terminal-panel`）在本地
@@ -121,7 +124,13 @@ pwsh -NoProfile -File uninstall.ps1
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `interceptShellTools` | `true` | 是否拦截 agent 前台 shell 调用 |
+| `interceptShellTools` | `true` | 是否拦截 agent shell 调用 |
+| `backgroundTerminals` | `true` | 后台命令是否在可见终端里执行并镜像输出 |
+| `maxBackgroundTerminals` | `2` | 每会话并发后台终端上限 |
+| `keepFinishedBackground` | `2` | 结束后保留在标签栏的后台终端数 |
+| `maxShellsPerConversation` | `2` | 每会话交互终端池上限 |
+| `autoReturnOnLongFinish` | `true` | 长任务结束后自动切回该终端 |
+| `autoReturnLongMs` | `8000` | 长任务回流阈值（毫秒） |
 | `autoCloseCommandDelayMs` | `8000` | 成功结束后自动关闭延迟；`-1` 永不 |
 | `autoCloseFailedDelayMs` | `30000` | 失败/超时/中止后关闭延迟 |
 | `autoCloseToolTerminals` | `true` | `live_terminal_run` 终端是否同样自动关闭 |
@@ -166,7 +175,8 @@ pwsh -NoProfile -File uninstall.ps1
   该事实会出现在面板状态栏与工具结果的 `sandbox` 字段中。
 - `requireSandbox: true` 时，非 `danger-full-access` 环境不会接管命令，
   回退到内置沙箱工具。
-- 升权调用（`sandbox_permissions`）与后台调用不拦截，审批流程保持不变。
+- 升权调用（`sandbox_permissions`）不拦截，审批流程保持不变；
+  后台调用在可见终端中执行，输出同样保存在本地会话里。
 
 ## 兼容性
 
@@ -183,7 +193,7 @@ pwsh -NoProfile -File uninstall.ps1
 |---|---|
 | 没有 `live_terminal_*` 工具 | `dsh.profile.bundles` 是否包含 `dsh-web-terminal`；宿主是否完整重启 |
 | 面板标签页不出现 | `cordis.patch.yml` 是否有 `- id: dsh-web-terminal` 行；浏览器控制台是否有 client bundle 报错 |
-| 命令不上屏 | `interceptShellTools` 是否为 `true`；是否带后台/升权参数；是否处于非 `danger-full-access` 且 `requireSandbox: true` |
+| 命令不上屏 | `interceptShellTools` 是否为 `true`；是否带升权参数；是否处于非 `danger-full-access` 且 `requireSandbox: true`；后台命令看 `backgroundTerminals` 与并发上限 |
 | 安装被 engines 拒绝 | `dsh plugin add` 会校验版本；本仓库使用手工安装路径 |
 
 ## 构建

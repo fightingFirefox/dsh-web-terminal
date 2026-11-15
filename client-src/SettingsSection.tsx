@@ -226,6 +226,50 @@ export function SettingsSection(props: SettingsSectionProps): JSX.Element {
       </div>
 
       <div className="dshtp-settings-group">
+        <div className="dshtp-settings-group-title">{t('settings.group.background')}</div>
+        <Row title={t('settings.background.title')} hint={t('settings.background.hint')}>
+          <Switch
+            label={t('settings.background.title')}
+            checked={bool('backgroundTerminals', true)}
+            disabled={disabled}
+            onChange={(next) => { write('backgroundTerminals', next) }}
+          />
+        </Row>
+        <Row title={t('settings.background.max')} hint={t('settings.background.maxHint')}>
+          <input
+            className="dshtp-settings-number"
+            type="number"
+            min={1}
+            max={4}
+            step={1}
+            disabled={disabled}
+            value={num('maxBackgroundTerminals', 2)}
+            onChange={(event) => { write('maxBackgroundTerminals', Number(event.currentTarget.value)) }}
+          />
+        </Row>
+        <Row title={t('settings.background.keep')} hint={t('settings.background.keepHint')}>
+          <input
+            className="dshtp-settings-number"
+            type="number"
+            min={0}
+            max={4}
+            step={1}
+            disabled={disabled}
+            value={num('keepFinishedBackground', 2)}
+            onChange={(event) => { write('keepFinishedBackground', Number(event.currentTarget.value)) }}
+          />
+        </Row>
+        <Row title={t('settings.background.return')} hint={t('settings.background.returnHint')}>
+          <Switch
+            label={t('settings.background.return')}
+            checked={bool('autoReturnOnLongFinish', true)}
+            disabled={disabled}
+            onChange={(next) => { write('autoReturnOnLongFinish', next) }}
+          />
+        </Row>
+      </div>
+
+      <div className="dshtp-settings-group">
         <div className="dshtp-settings-group-title">{t('settings.group.lifecycle')}</div>
         <Row title={t('settings.history.title')} hint={t('settings.history.hint')}>
           <input

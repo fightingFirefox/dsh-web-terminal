@@ -308,6 +308,16 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
             }
             return
           }
+          if (notice.type === 'background-command') {
+            const current = props.currentSession?.()
+            if (current !== undefined && notice.sessionId !== undefined && notice.sessionId !== current) return
+            pushToast({
+              title: '\u540e\u53f0\u547d\u4ee4',
+              body: (notice.title ?? '').slice(0, 160) + ' \u00b7 \u8f93\u51fa\u4e0d\u955c\u50cf',
+              actions: [],
+            })
+            return
+          }
           if (notice.type === 'terminal-error') {
             const current = props.currentSession?.()
             if (current !== undefined && notice.sessionId !== undefined && notice.sessionId !== current) return
@@ -316,6 +326,15 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
               body: notice.message.slice(0, 200),
               actions: [],
             })
+            return
+          }
+          if (notice.type === 'command-end') {
+            const current = props.currentSession?.()
+            if (current !== undefined && notice.sessionId !== undefined && notice.sessionId !== current) return
+            if (configRef.current?.config.autoReturnOnLongFinish === false) return
+            const threshold = Number(configRef.current?.config.autoReturnLongMs ?? 8000) || 8000
+            if ((notice.durationMs ?? 0) < threshold) return
+            openForCommand(notice.terminalId, notice.sessionId, 0, '')
             return
           }
           if (notice.type === 'command-start') {
@@ -553,7 +572,14 @@ export function apply(ctx: ClientContext): void {
           sidebar.toggleExpanded?.()
         }
         sidebar.focus(existing)
-        return true
+        // The inventory can remember a tab that is no longer in the mounted
+        // layout (closed while another conversation was on screen); focus() is a
+        // silent no-op then, so verify before reporting success and fall back to
+        // opening the page again.
+        const active = typeof sidebar.active === 'function' ? sidebar.active()?.id : undefined
+        const expanded = typeof sidebar.isExpanded === 'function' ? sidebar.isExpanded() : true
+        if (active === existing || expanded) return true
+        console.warn('[dsh-web-terminal] stale tab record, reopening', existing, active)
       }
       sidebar.openTab(TAB_KIND, { revealIfOpened: true })
       return true

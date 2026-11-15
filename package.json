@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-terminal",
-  "version": "1.1.6",
+  "version": "1.2.0",
   "description": "Visible terminal panel for the DeepSeek Harness web GUI: one persistent PTY per conversation with a real prompt, echo and exit codes; Claude-styled themes; optional live_terminal_* tools.",
   "type": "module",
   "license": "MIT",
@@ -75,7 +75,8 @@
     "build": "node tools/build-client.mjs",
     "build:cli": "pwsh -NoProfile -File tools/build-cli.ps1",
     "wrap": "node tools/wrap-bundle.mjs",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:host": "node tools/self-test.mjs"
   },
   "dsh": {
     "bundle": {

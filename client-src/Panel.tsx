@@ -407,6 +407,20 @@ export function Panel(props: PanelProps) {
       (session) => session.sessionId === undefined || session.sessionId === conversationSessionId,
     )
   }, [conversationSessionId, onlyThisSession, sessions])
+  // Running terminals first, then the most recent ones; a long tail collapses
+  // into the first slots instead of growing one tab per command.
+  const stripSessions = useMemo(() => {
+    const rank = (session: SessionInfo): number => (session.state === 'running' ? 0 : 1)
+    const sorted = [...scopedSessions].sort(
+      (left, right) => rank(left) - rank(right) || (right.createdAt ?? 0) - (left.createdAt ?? 0),
+    )
+    const limited = sorted.slice(0, 8)
+    if (selectedId !== null) {
+      const current = sorted.find((session) => session.id === selectedId)
+      if (current !== undefined && !limited.some((session) => session.id === current.id)) limited.unshift(current)
+    }
+    return limited
+  }, [scopedSessions, selectedId])
   const [unread, setUnread] = useState<Set<string>>(() => new Set())
 
   useEffect(() => {
@@ -453,6 +467,9 @@ export function Panel(props: PanelProps) {
   const pendingFocusRef = useRef<string | null>(null)
   const followRef = useRef(follow)
   followRef.current = follow
+  // Typing in the terminal suppresses auto-focus for a short while instead of
+  // switching the follow setting off for good.
+  const suppressAutoFocusUntilRef = useRef(0)
   const sessionsRef = useRef<SessionInfo[]>([])
   sessionsRef.current = sessions
   const knownIdsRef = useRef<Set<string>>(new Set())
@@ -655,7 +672,7 @@ export function Panel(props: PanelProps) {
         return
       }
     }
-    if (followRef.current) {
+    if (followRef.current && Date.now() >= suppressAutoFocusUntilRef.current) {
       const preferred = pickPreferred(fresh)
       if (preferred && preferred.id !== selectedIdRef.current) setSelectedId(preferred.id)
       return
@@ -1518,8 +1535,7 @@ export function Panel(props: PanelProps) {
         onInputError={(message) => showToast(`${t('inputFailed')}: ${message}`, 'error')}
         onReadOnlyInput={() => showToast(t('takeControlHint'), 'info')}
         onUserActivity={() => {
-          setFollow(false)
-          storeBoolean(FOLLOW_STORAGE_KEY, false)
+          suppressAutoFocusUntilRef.current = Date.now() + 15_000
         }}
         onSelectionChange={setHasSelection}
         onToast={(text, kind) => showToast(text, kind === 'error' ? 'error' : 'info')}
@@ -1552,8 +1568,7 @@ export function Panel(props: PanelProps) {
         onInputError={(message) => showToast(`${t('inputFailed')}: ${message}`, 'error')}
         onReadOnlyInput={() => showToast(t('takeControlHint'), 'info')}
         onUserActivity={() => {
-          setFollow(false)
-          storeBoolean(FOLLOW_STORAGE_KEY, false)
+          suppressAutoFocusUntilRef.current = Date.now() + 15_000
         }}
         onSelectionChange={() => undefined}
         onToast={(text, kind) => showToast(text, kind === 'error' ? 'error' : 'info')}
@@ -2467,7 +2482,7 @@ export function Panel(props: PanelProps) {
           data-dsh-tp-sessions
           onKeyDown={handleTabListKeyDown}
         >
-          {scopedSessions.map(renderTab)}
+          {stripSessions.map(renderTab)}
         </div>
 
         <button
