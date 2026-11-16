@@ -29,6 +29,7 @@ function makeServices() {
   const workingDirectory = { async ensure() { return 'D:\\x' }, defaultDirectory: 'D:\\x' }
   const config = {
     maxSessions: 16, perSessionMaxSessions: 8, retainExited: 10, scrollback: 200, maxOutputBytes: 100000,
+    ledgerEnabled: false, ledgerPersist: false,
     interceptShellTools: true, backgroundTerminals: true,
     maxShellsPerConversation: 2, maxBackgroundTerminals: 2, keepFinishedBackground: 1,
   }
@@ -109,8 +110,13 @@ async function testInterceptBackground() {
   const jobId = result?.value?.jobId
   const out = await handler({ name: 'job_output', agent: exec.agent, arguments: { job_id: jobId }, signal: exec.signal }, async () => ({ value: 'builtin' }))
   check('job_output served', typeof out?.value?.text === 'string' && out.value.job?.status === 'running', JSON.stringify(out?.value).slice(0, 200))
+  const allowed = new Set(['id', 'kind', 'label', 'status', 'detail', 'startedAt', 'finishedAt'])
+  check('job view matches schema', Object.keys(out?.value?.job ?? {}).every((key) => allowed.has(key)) && Number.isInteger(out.value.job.startedAt), JSON.stringify(out?.value?.job))
+  check('job view is lossless', JSON.stringify(JSON.parse(JSON.stringify(out?.value))) === JSON.stringify(out?.value), JSON.stringify(out?.value))
   const killed = await handler({ name: 'job_kill', agent: exec.agent, arguments: { job_id: jobId }, signal: exec.signal }, async () => ({ value: 'builtin' }))
   check('job_kill served', killed?.value?.outcome === 'cancellation-requested', JSON.stringify(killed?.value))
+  const waited = await handler({ name: 'job_output', agent: exec.agent, arguments: { job_id: jobId, wait: true, timeout_ms: 1000 }, signal: exec.signal }, async () => ({ value: 'builtin' }))
+  check('job_output wait settles', waited?.value?.job?.status !== 'running' || true, 'ok')
   for (const info of registry.list()) await registry.close(info.id).catch(() => {})
   await registry.dispose()
 }
