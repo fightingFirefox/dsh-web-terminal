@@ -50,7 +50,7 @@ pwsh -NoProfile -File install.ps1
 
 安装后必须完全退出 DSH 再启动：host 插件与 client bundle 在启动时加载。
 
-也可以直接下载 [Release v1.2.0](https://github.com/fightingFirefox/dsh-web-terminal/releases/tag/v1.2.0) 的源码包，解压后执行同一份 `install.ps1`。
+也可以直接下载 [Release v1.2.1](https://github.com/fightingFirefox/dsh-web-terminal/releases/tag/v1.2.1) 的源码包，解压后执行同一份 `install.ps1`。
 
 方式二：手动安装
 
@@ -95,6 +95,8 @@ pwsh -NoProfile -File uninstall.ps1
   后台命令并发默认 2 个，空闲后复用，不按命令数无限增长。
 - **自动打开**：出现新的可见终端时自动打开右侧栏；长命令（默认 ≥8 秒）结束后
   自动切回它所在的终端，其余终端保留在标签栏。
+- **跟随**：模型改动的文本文件进入「文件」页并按语言分组，可一键清理；若会话走
+  DSH 原生 `terminal_*` 工具，命令活动后右栏自动切到对应的原生终端页。
 - **常驻**：命令结束后终端保持打开并停在提示符上，没有自动关闭计时器；
   需要额外终端时用面板的 `+` 或 `live_terminal_open`。
 - **传输**：面板数据经宿主 HTTP/SSE 通道（前缀 `/dsh-terminal-panel`）在本地
