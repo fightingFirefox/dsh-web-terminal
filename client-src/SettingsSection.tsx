@@ -1,4 +1,3 @@
-// Settings section for dsh-web-terminal (registered into the official settings shell).
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
 

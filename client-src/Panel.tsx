@@ -1,4 +1,3 @@
-// dsh-web-terminal panel body: session strip, terminal screen, menus, history and dialogs.
 
 import { createPortal } from 'react-dom'
 
@@ -407,8 +406,6 @@ export function Panel(props: PanelProps) {
       (session) => session.sessionId === undefined || session.sessionId === conversationSessionId,
     )
   }, [conversationSessionId, onlyThisSession, sessions])
-  // Running terminals first, then the most recent ones; a long tail collapses
-  // into the first slots instead of growing one tab per command.
   const stripSessions = useMemo(() => {
     const rank = (session: SessionInfo): number => (session.state === 'running' ? 0 : 1)
     const sorted = [...scopedSessions].sort(
@@ -461,14 +458,9 @@ export function Panel(props: PanelProps) {
   const rootRef = useRef<HTMLElement | null>(null)
   const selectedIdRef = useRef<string | null>(null)
   selectedIdRef.current = selectedId
-  // A command-start can name a terminal the panel has not listed yet (host just
-  // restarted). Keep that focus until the session appears instead of snapping
-  // back to another terminal.
   const pendingFocusRef = useRef<string | null>(null)
   const followRef = useRef(follow)
   followRef.current = follow
-  // Typing in the terminal suppresses auto-focus for a short while instead of
-  // switching the follow setting off for good.
   const suppressAutoFocusUntilRef = useRef(0)
   const sessionsRef = useRef<SessionInfo[]>([])
   sessionsRef.current = sessions

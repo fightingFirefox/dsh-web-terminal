@@ -1,4 +1,3 @@
-// Files panel: grouped list of followed edits with in-panel preview and tab cleanup.
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'

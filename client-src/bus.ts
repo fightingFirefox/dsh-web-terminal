@@ -1,4 +1,3 @@
-// Recent command-start focus shared between the watcher and the panel.
 export interface CommandFocus {
   terminalId: string
   sessionId?: string

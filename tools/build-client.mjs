@@ -1,5 +1,3 @@
-// Build lib/client.js with esbuild's JS API.
-
 #!/usr/bin/env node
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'

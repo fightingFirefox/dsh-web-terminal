@@ -1,4 +1,3 @@
-// Shared client types.
 
 export type SessionKind = 'command' | 'interactive'
 export type SessionOwner = 'agent' | 'user'
@@ -193,6 +192,12 @@ export interface CommandStartNotice {
   background?: boolean
 }
 
+export interface NativeTerminalNotice {
+  type: 'native-terminal'
+  sessionId?: string
+  terminalId?: string
+}
+
 export interface CommandEndNotice {
   type: 'command-end'
   terminalId: string
@@ -234,6 +239,7 @@ export type Notice =
   | CommandFinishedNotice
   | CommandStartNotice
   | CommandEndNotice
+  | NativeTerminalNotice
   | FileChangedNotice
   | TerminalErrorNotice
   | BackgroundCommandNotice
@@ -582,6 +588,15 @@ export function parseNotice(value: unknown): Notice | null {
       ...(sessionId === undefined ? {} : { sessionId }),
       ...(title === undefined ? {} : { title }),
       ...(record.background === true ? { background: true } : {}),
+    }
+  }
+  if (type === 'native-terminal') {
+    const sessionId = readString(record.sessionId)
+    const nativeTerminalId = readString(record.terminalId)
+    return {
+      type,
+      ...(sessionId === undefined ? {} : { sessionId }),
+      ...(nativeTerminalId === undefined ? {} : { terminalId: nativeTerminalId }),
     }
   }
   if (type === 'command-end') {

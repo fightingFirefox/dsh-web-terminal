@@ -1,4 +1,3 @@
-// dsh-web-terminal client entry: registers the sidebar tab, locale, keymap and global watcher.
 
 import { useEffect, useRef, useState } from 'react'
 import * as primitives from '@deepseek-ai/dsh-client-ui-primitives'
@@ -60,12 +59,22 @@ interface OpenTabsStore {
   subscribe?(listener: () => void): () => void
 }
 
+interface OpenResourceOptions {
+  params?: Record<string, unknown>
+  revealIfOpened?: boolean
+}
+
+interface OpenTabOptions {
+  params?: Record<string, unknown>
+  revealIfOpened?: boolean
+}
+
 interface SidebarRightService {
-  openTab(kind: string, options?: Record<string, unknown>): void
+  openTab(kind: string, options?: OpenTabOptions): void
   close?(tabId: string): void
   focus?(tabId: string): void
   toggleExpanded?(): void
-  openResource?(address: string, options?: unknown): void
+  openResource?(address: string, options?: OpenResourceOptions): void
   isExpanded?(): boolean
   active?(): OpenTabRecord | undefined
   openTabs?: OpenTabsStore
@@ -134,6 +143,7 @@ interface GlobalNoticeProps {
   sendCommand?: (command: string) => void
   openTabs?: OpenTabsStore
   openFollow?: (notice: FileChangedNotice) => boolean
+  focusNativeTerminal?: (terminalId?: string) => boolean
   openFilesPanel?: () => boolean
   currentSession?: () => string | undefined
 }
@@ -212,8 +222,6 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
         const commandLike = session.kind === 'command'
         const allowed = policy === 'intercepted' ? commandLike : commandLike || (includeInteractive && session.kind === 'interactive')
         if (!allowed) continue
-        // Tools such as live_terminal_run create a terminal session without a
-        // command-start notice; follow the new session anyway.
         if (viewing !== undefined && session.sessionId !== viewing) continue
         const sessionKey = session.sessionId ?? '__page__'
         if (!reopen && (autoOpenedRef.current.has(sessionKey) || manualClosedRef.current.has(sessionKey))) continue
@@ -287,8 +295,6 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
           if (notice.type === 'file-changed') {
             if (configRef.current?.config.editFollow === false) return
             recordFollowedFile(notice.sessionId, notice)
-            // The files tab lives in the on-screen Session: never reveal it for
-            // an edit that happened in another conversation.
             const viewing = props.currentSession?.()
             if (viewing !== undefined && notice.sessionId !== viewing) return
             setFollowTabLimit(Number(configRef.current?.config.followTabLimit ?? 3) || 3)
@@ -326,6 +332,12 @@ function GlobalNotice(props: GlobalNoticeProps): JSX.Element {
               body: notice.message.slice(0, 200),
               actions: [],
             })
+            return
+          }
+          if (notice.type === 'native-terminal') {
+            const current = props.currentSession?.()
+            if (current !== undefined && notice.sessionId !== undefined && notice.sessionId !== current) return
+            props.focusNativeTerminal?.(notice.terminalId)
             return
           }
           if (notice.type === 'command-end') {
@@ -560,8 +572,6 @@ export function apply(ctx: ClientContext): void {
     return first?.tabId ?? first?.id
   }
 
-  // Reveal by tab id: page tabs dedupe by contentId, and tabs minted by older
-  // builds carry a per-open contentId, so openTab would never match them.
   const openPanel = (): boolean => {
     const sidebar = ctx.sidebarRight
     if (sidebar === undefined) return false
@@ -572,10 +582,6 @@ export function apply(ctx: ClientContext): void {
           sidebar.toggleExpanded?.()
         }
         sidebar.focus(existing)
-        // The inventory can remember a tab that is no longer in the mounted
-        // layout (closed while another conversation was on screen); focus() is a
-        // silent no-op then, so verify before reporting success and fall back to
-        // opening the page again.
         const active = typeof sidebar.active === 'function' ? sidebar.active()?.id : undefined
         const expanded = typeof sidebar.isExpanded === 'function' ? sidebar.isExpanded() : true
         if (active === existing || expanded) return true
@@ -600,6 +606,34 @@ export function apply(ctx: ClientContext): void {
     try {
       if (typeof sidebar.isExpanded === 'function' && !sidebar.isExpanded()) sidebar.toggleExpanded?.()
       sidebar.focus(tabId)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const focusNativeTerminal = (terminalId?: string): boolean => {
+    const sidebar = ctx.sidebarRight
+    const records = sidebar?.openTabs?.getSnapshot?.() ?? []
+    if (records.length === 0) return false
+    const current = currentSession()
+    const mine = records.filter((record) =>
+      record.kind === 'terminal' &&
+      (current === undefined || record.sessionId === undefined || String(record.sessionId) === String(current)))
+    const target = mine[mine.length - 1]
+    const tabId = target?.tabId ?? target?.id
+    if (tabId === undefined) {
+      if (terminalId === undefined || terminalId === '') return false
+      try {
+        sidebar?.openTab?.('terminal', { params: { terminalId }, revealIfOpened: true })
+        return true
+      } catch {
+        return false
+      }
+    }
+    try {
+      if (typeof sidebar?.isExpanded === 'function' && !sidebar.isExpanded()) sidebar.toggleExpanded?.()
+      sidebar?.focus?.(String(tabId))
       return true
     } catch {
       return false
@@ -684,13 +718,12 @@ export function apply(ctx: ClientContext): void {
     if (sidebar?.openResource === undefined) return
     if (!openPanel()) return
     try {
-      sidebar.openResource(address, { params: { line }, revealIfOpened: true } as never)
+      sidebar.openResource(address, { params: { line }, revealIfOpened: true })
     } catch (error) {
       console.warn('[dsh-web-terminal] file tab open failed', error)
     }
   }
 
-  // Keep the tab strip bounded: past the limit, fall back to the files panel.
   const followEdit = (notice: FileChangedNotice): boolean => {
     const sidebar = ctx.sidebarRight
     const openResource = sidebar?.openResource
@@ -701,7 +734,7 @@ export function apply(ctx: ClientContext): void {
     }
     if (current === undefined || current !== notice.sessionId) return false
     if (countSessionFileTabs(current) >= getFollowTabLimit()) return openFilesPanel()
-    const options = { params: { line: notice.line }, revealIfOpened: true } as never
+    const options: OpenResourceOptions = { params: { line: notice.line }, revealIfOpened: true }
     const run = (): boolean => {
       try {
         openResource.call(sidebar, notice.address, options)
@@ -789,8 +822,6 @@ export function apply(ctx: ClientContext): void {
     'dsh-web-terminal: files tab type',
   )
 
-  // One panel per conversation: older builds registered this kind as multiple,
-  // so keep the first tab of the on-screen session and close the rest.
   const pruneDuplicateTabs = (): void => {
     const sidebar = ctx.sidebarRight
     if (sidebar === undefined) return
@@ -805,6 +836,42 @@ export function apply(ctx: ClientContext): void {
       try { sidebar.close?.(tabId) } catch {}
     }
   }
+
+  ctx.effect(() => {
+    const openTabs = ctx.sidebarRight?.openTabs
+    if (openTabs === undefined || typeof openTabs.getSnapshot !== 'function') return
+    const known = new Set<string>()
+    const keyOf = (record: OpenTabRecord): string | undefined => record.tabId ?? record.id
+    for (const record of openTabs.getSnapshot?.() ?? []) {
+      const key = keyOf(record)
+      if (key !== undefined) known.add(String(key))
+    }
+    const focusNative = (tabId: string): void => {
+      const sidebar = ctx.sidebarRight
+      if (sidebar === undefined || typeof sidebar.focus !== 'function') return
+      try {
+        if (typeof sidebar.isExpanded === 'function' && !sidebar.isExpanded()) sidebar.toggleExpanded?.()
+        sidebar.focus(tabId)
+      } catch {}
+    }
+    const sync = (): void => {
+      const records = openTabs.getSnapshot?.() ?? []
+      const current = currentSession()
+      for (const record of records) {
+        const key = keyOf(record)
+        if (key === undefined) continue
+        const id = String(key)
+        if (known.has(id)) continue
+        known.add(id)
+        if (record.kind !== 'terminal') continue
+        if (current !== undefined && record.sessionId !== undefined && String(record.sessionId) !== String(current)) continue
+        window.setTimeout(() => focusNative(id), 60)
+      }
+    }
+    sync()
+    const unsubscribe = openTabs.subscribe?.(sync)
+    return () => { unsubscribe?.() }
+  }, 'dsh-web-terminal: native terminal follow')
 
   ctx.effect(() => {
     const timers: number[] = []
@@ -941,7 +1008,8 @@ export function apply(ctx: ClientContext): void {
             id: `${PLUGIN_ID}.global-notice`,
             order: 900,
             locale: NAMESPACE,
-            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs, openFollow: followEdit, openFilesPanel, currentSession }),
+            inject: () => ({ openPanel, sendCommand, openTabs: ctx.sidebarRight?.openTabs, openFollow: followEdit,
+    focusNativeTerminal, openFilesPanel, currentSession }),
           },
           GlobalNotice as unknown as LooseFunction,
         )

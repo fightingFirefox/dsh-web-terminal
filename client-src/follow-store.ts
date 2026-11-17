@@ -1,4 +1,3 @@
-// Followed-file store shared by the notice handler and the files panel.
 
 export interface FollowedFile {
   path: string

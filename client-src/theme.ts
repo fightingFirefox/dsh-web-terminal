@@ -1,4 +1,3 @@
-// xterm theme derived from DSH design tokens.
 
 import type { ITheme } from '@xterm/xterm'
 

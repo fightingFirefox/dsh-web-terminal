@@ -1,4 +1,3 @@
-// Panel stylesheet (Claude skin).
 
 export const styles = String.raw`
 
@@ -1858,9 +1857,6 @@ export const styles = String.raw`
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* Settings section (official settings shell)                          */
-/* ------------------------------------------------------------------ */
 
 .dshtp-settings {
   display: flex;
@@ -1966,9 +1962,6 @@ export const styles = String.raw`
 .dshtp-settings-number:disabled { opacity: 0.55; }
 .dshtp-settings-foot { color: var(--dsw-alias-label-tertiary, #8f8d85); font-size: 11.5px; }
 
-/* ------------------------------------------------------------------ */
-/* Split view                                                          */
-/* ------------------------------------------------------------------ */
 
 .dshtp-split {
   display: flex;
@@ -2063,7 +2056,6 @@ export const styles = String.raw`
 }
 
 
-/* ---- files panel ---- */
 
 .dshtp-files {
   display: flex;

@@ -1,4 +1,3 @@
-// xterm.js view bound to one PTY session.
 
 import { createPortal } from 'react-dom'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -663,7 +662,6 @@ export function TerminalView(props: TerminalViewProps) {
         console.warn('[dsh-web-terminal] fit failed', error)
         return
       }
-      // Rounded cell metrics can leave the last row half outside the box.
       const style = getComputedStyle(element)
       const padding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0)
       const available = element.clientHeight - padding
@@ -688,7 +686,6 @@ export function TerminalView(props: TerminalViewProps) {
     const observer = new ResizeObserver(scheduleFit)
     observer.observe(host)
     const initialTimer = window.setTimeout(scheduleFit, 30)
-    // Web fonts can change the cell height after the first fit.
     let fontTimer = 0
     void document.fonts?.ready.then(() => {
       fontTimer = window.setTimeout(scheduleFit, 0)

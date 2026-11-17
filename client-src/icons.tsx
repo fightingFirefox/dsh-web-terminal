@@ -1,4 +1,3 @@
-// Inline SVG icons.
 
 import type { ReactNode } from 'react'
 

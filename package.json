@@ -1,6 +1,6 @@
 {
   "name": "dsh-web-terminal",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Visible terminal panel for the DeepSeek Harness web GUI: one persistent PTY per conversation with a real prompt, echo and exit codes; Claude-styled themes; optional live_terminal_* tools.",
   "type": "module",
   "license": "MIT",
@@ -43,7 +43,6 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
-    "README.zh.md",
     "LICENSE",
     "NOTICE",
     "icon.svg",

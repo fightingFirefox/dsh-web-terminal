@@ -1,5 +1,3 @@
-// Host-side self test: no DSH required. Exercises the terminal pool, the
-// background capture path and the job_* interception with mocked services.
 import { TerminalRegistry } from '../lib/host/registry.js'
 import { AgentShells } from '../lib/host/agent-shell.js'
 import { registerIntercept } from '../lib/host/intercept.js'
@@ -136,7 +134,6 @@ async function testPool() {
   const shells = new AgentShells({ registry, getConfig: () => config, logger: { warn() {} } })
   const exec = { name: 'pwsh', agent: { id: 'a1', session: { id: 'session-1' } }, arguments: { command: 'echo hi' } }
   const options = { command: 'echo hi', cwd: 'D:\\x', timeoutMs: 5000, sessionId: 'session-1' }
-  // The mocked PTY never renders the shell prompt, so only pool accounting is asserted.
   const first = await Promise.race([shells.run(exec, options), new Promise((resolve) => setTimeout(() => resolve('TIMEOUT'), 8000))])
   check('pool command settles', JSON.stringify(first) !== '"TIMEOUT"', String(first))
   await shells.dispose()

@@ -1,4 +1,3 @@
-// HTTP/SSE client for the host half.
 
 import {
   parseCaptureRequest,

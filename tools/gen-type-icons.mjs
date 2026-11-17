@@ -1,11 +1,7 @@
-// Generates client-src/type-icons.tsx.
-// File-type icons come from @iconify-json/vscode-icons (MIT).
-// Bright/official brand logos come from simple-icons (CC0 1.0).
 import icons from '@iconify-json/vscode-icons/icons.json' with { type: 'json' }
 import * as si from 'simple-icons'
 import { writeFile } from 'node:fs/promises'
 
-// Official brand logos for categories where the file-type icon is unreadable.
 const BRAND_MAP = {
   json: 'Json',
   yaml: 'Yaml',

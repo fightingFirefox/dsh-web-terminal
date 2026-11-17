@@ -1,4 +1,3 @@
-// Ambient module declarations.
 
 declare const __PLUGIN_VERSION__: string
 

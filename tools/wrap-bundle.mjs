@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// Wrap the esbuild output in the DSH ModuleLoader envelope.
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'

@@ -1,4 +1,3 @@
-// zh/en messages.
 
 export type LocaleTable = Record<string, string>
 
@@ -7,9 +6,7 @@ export const zh: LocaleTable = {
   description: '在侧栏中运行一个可见终端，实时显示命令输出',
   guideDescription: '打开可见终端面板',
   newTerminal: '新建终端',
-  newTerminalShort: '新建',
   creating: '正在启动…',
-  refresh: '刷新会话列表',
   reconnect: '重新连接',
   reconnecting: '正在重连…',
   screenshot: '截图',
@@ -25,7 +22,6 @@ export const zh: LocaleTable = {
   empty: '暂无终端会话',
   emptyHint:
     '点击“新建终端”打开一个可见终端；agent 执行的命令会自动出现在这里，提示符与输出由 shell 自己渲染。',
-  noTerminal: '未选择终端',
   listError: '无法连接终端服务',
   listErrorHint: '请检查网络后重试；若持续失败，请确认插件已正确加载。',
   hostNotReady: '终端服务尚未就绪，请稍后重试。',
@@ -45,7 +41,6 @@ export const zh: LocaleTable = {
   running: '运行中',
   runningShort: '运行中',
   exited: '已退出',
-  exitedWithCode: '已退出（{code}）',
   exitedShort: '已退出（{code}）',
   failed: '启动失败',
   paused: '已暂停自动关闭',
@@ -60,7 +55,6 @@ export const zh: LocaleTable = {
   followLatest: '跟随最新输出',
   following: '正在跟随最新输出',
   pin: '保留此终端',
-  unpin: '取消保留',
   pinned: '已保留',
   rename: '重命名',
   renamePrompt: '输入新的终端名称',
@@ -97,7 +91,6 @@ export const zh: LocaleTable = {
   notSandboxedBody: '终端命令以当前系统用户权限运行，不受 DSH 文件沙箱约束。',
 
 
-  hostNotReadyShort: '终端服务未就绪',
   config: '配置',
   configTitle: '生效配置',
   configCopy: '复制配置',
@@ -106,7 +99,7 @@ export const zh: LocaleTable = {
   shellLabel: 'Shell',
   sizeLabel: '尺寸',
   cwdLabel: '工作目录',
-  maximize: '最大化',
+  expand: '最大化',
   collapse: '退出最大化',
   fontSmaller: '字体缩小',
   fontLarger: '字体放大',
@@ -197,8 +190,9 @@ export const zh: LocaleTable = {
   'settings.ports.title': '端口识别',
   'settings.ports.hint': '识别输出中的 loopback 地址并生成可点击链接。',
   'settings.foot.ready': '配置即时生效，保存在 profile 的 cordis.patch.yml 中。',
+  'settings.foot.store': '官方表单不可用，改用插件设置存储。',
+  'settings.foot.storeError': '读取设置失败：{message}',
   'settings.foot.loading': '正在读取配置…',
-  'settings.unavailable': '配置表单不可用（宿主未暴露该命名空间）。',
 }
 
 export const en: LocaleTable = {
@@ -206,9 +200,7 @@ export const en: LocaleTable = {
   description: 'A visible terminal in the sidebar that streams command output live',
   guideDescription: 'Open the visible terminal panel',
   newTerminal: 'New terminal',
-  newTerminalShort: 'New',
   creating: 'Starting…',
-  refresh: 'Refresh sessions',
   reconnect: 'Reconnect',
   reconnecting: 'Reconnecting…',
   screenshot: 'Screenshot',
@@ -224,7 +216,6 @@ export const en: LocaleTable = {
   empty: 'No terminal sessions yet',
   emptyHint:
     'Click “New terminal” to open a visible terminal; agent commands show up here automatically, rendered by the shell itself.',
-  noTerminal: 'No terminal selected',
   listError: 'Could not reach the terminal service',
   listErrorHint: 'Check your connection and try again. If it keeps failing, make sure the plugin is loaded.',
   hostNotReady: 'The terminal service is not ready yet. Try again shortly.',
@@ -244,7 +235,6 @@ export const en: LocaleTable = {
   running: 'Running',
   runningShort: 'Running',
   exited: 'Exited',
-  exitedWithCode: 'Exited ({code})',
   exitedShort: 'Exited ({code})',
   failed: 'Failed to start',
   paused: 'Auto-close paused',
@@ -259,7 +249,6 @@ export const en: LocaleTable = {
   followLatest: 'Follow latest output',
   following: 'Following latest output',
   pin: 'Keep terminal',
-  unpin: 'Stop keeping',
   pinned: 'Kept',
   rename: 'Rename',
   renamePrompt: 'Enter a new terminal name',
@@ -297,7 +286,6 @@ export const en: LocaleTable = {
     'Terminal commands run with your system user permissions and are not constrained by the DSH file sandbox.',
 
 
-  hostNotReadyShort: 'Terminal service not ready',
   config: 'Configuration',
   configTitle: 'Effective configuration',
   configCopy: 'Copy configuration',
@@ -306,7 +294,7 @@ export const en: LocaleTable = {
   shellLabel: 'Shell',
   sizeLabel: 'Size',
   cwdLabel: 'Working directory',
-  maximize: 'Maximize',
+  expand: 'Maximize',
   collapse: 'Exit maximize',
   fontSmaller: 'Smaller font',
   fontLarger: 'Larger font',
@@ -400,5 +388,4 @@ export const en: LocaleTable = {
   'settings.foot.store': 'The official form is unavailable; using the plugin settings store. Changes apply immediately, a few fields on next start.',
   'settings.foot.storeError': 'Could not read settings: {message}',
   'settings.foot.loading': 'Loading configuration…',
-  'settings.unavailable': 'Config form unavailable (the host does not expose this namespace).',
 }
